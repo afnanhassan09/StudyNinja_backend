@@ -1,0 +1,441 @@
+const { uploadFile } = require('../utils/AWS');
+const Tutor = require('../models/tutorModel');
+const EssayModel = require('../models/modelEssayModel');
+const Essay = require('../models/essayModel');
+
+class TutorController {
+    async requestForTutor(req, res) {
+        try {
+            const {
+                yearsOfExperience,
+                university,
+                motivation,
+                subjects,
+                StudyLevel,
+                certifications,
+                hasDBS,
+                fullNameDBS,
+                certificateNumber
+            } = req.body;
+
+            const files = req.files;
+            const userId = req.user._id;
+            if (!yearsOfExperience || !university || !subjects) {
+                return res.status(400).json({
+                    message: 'Missing required fields:yearsOfExperience, university, or subjects.',
+                });
+            }
+
+            let parsedSubjects;
+            try {
+                parsedSubjects = JSON.parse(subjects);
+            } catch (err) {
+                return res.status(400).json({
+                    message: 'Invalid subjects format. It must be a valid JSON array.',
+                });
+            }
+
+            let profilePictureUrl = null;
+            let certificateFileUrl = null;
+            const universityDocumentUrls = [];
+
+            await Promise.all([
+                files.profilePicture ? uploadFile(files.profilePicture[0].buffer, files.profilePicture[0].originalname, files.profilePicture[0].mimetype).then(url => profilePictureUrl = url) : null,
+                files.certificateFile ? uploadFile(files.certificateFile[0].buffer, files.certificateFile[0].originalname, files.certificateFile[0].mimetype).then(url => certificateFileUrl = url) : null,
+                files.universityDocuments ? Promise.all(files.universityDocuments.map(doc =>
+                    uploadFile(doc.buffer, doc.originalname, doc.mimetype).then(url => universityDocumentUrls.push(url))
+                )) : null
+            ]);
+
+            let tutor = await Tutor.findOne({ userId });
+
+            if (tutor) {
+                tutor.yearsOfExperience = yearsOfExperience || tutor.yearsOfExperience;
+                tutor.university = university || tutor.university;
+                tutor.motivation = motivation || tutor.motivation;
+                tutor.profilePicture = profilePictureUrl || tutor.profilePicture;
+                tutor.subjects = parsedSubjects || tutor.subjects;
+                tutor.StudyLevel = StudyLevel || tutor.StudyLevel;
+                tutor.hasDBS = hasDBS !== undefined ? hasDBS : tutor.hasDBS;
+                tutor.fullNameDBS = fullNameDBS || tutor.fullNameDBS;
+                tutor.certificateNumber = certificateNumber || tutor.certificateNumber;
+                tutor.certificateFileUrl = certificateFileUrl || tutor.certificateFileUrl;
+                tutor.universityDocuments = universityDocumentUrls.length > 0 ? universityDocumentUrls : tutor.universityDocuments;
+
+                await tutor.save();
+
+                return res.status(200).json({
+                    message: 'Tutor profile updated successfully!',
+                    tutor,
+                });
+            } else {
+                tutor = await Tutor.create({
+                    userId,
+                    yearsOfExperience,
+                    university,
+                    motivation: motivation || '',
+                    profilePicture: profilePictureUrl || null,
+                    subjects: parsedSubjects,
+                    StudyLevel: StudyLevel || 'None',
+                    hasDBS: hasDBS || false,
+                    fullNameDBS: fullNameDBS || 'None',
+                    certificateNumber: certificateNumber || 'None',
+                    certificateFileUrl: certificateFileUrl || null,
+                    universityDocuments: universityDocumentUrls,
+                });
+
+                return res.status(201).json({
+                    message: 'Tutor request submitted successfully!',
+                    tutor,
+                });
+            }
+        } catch (error) {
+            console.error('Error submitting tutor request:', error);
+            return res.status(500).json({
+                message: 'Internal server error',
+                error: error.message,
+            });
+        }
+    }
+
+    async updateTutorLevel(req, res) {
+        try {
+            const { userId, StudyLevel } = req.body;
+
+            // Validate required inputs
+            if (!userId || !StudyLevel) {
+                return res.status(400).json({
+                    message: 'Missing required fields: userId or StudyLevel.',
+                });
+            }
+
+            // Validate StudyLevel
+            const validLevels = ["GCSE", "A-Level", "Bachelor", "Masters", "PhD"];
+            if (!validLevels.includes(StudyLevel)) {
+                return res.status(400).json({
+                    message: `Invalid StudyLevel. Allowed values are: ${validLevels.join(', ')}.`,
+                });
+            }
+
+            // Find tutor profile
+            const tutor = await Tutor.findOne({ userId });
+
+            if (!tutor) {
+                return res.status(404).json({
+                    message: 'Tutor profile not found.',
+                });
+            }
+
+            // Update StudyLevel
+            tutor.StudyLevel = StudyLevel;
+            await tutor.save();
+
+            return res.status(200).json({
+                message: 'StudyLevel updated successfully!',
+                tutor,
+            });
+        } catch (error) {
+            console.error('Error updating StudyLevel:', error);
+            return res.status(500).json({
+                message: 'Internal server error',
+                error: error.message,
+            });
+        }
+    }
+
+    async getTutorView(req, res) {
+        try {
+            console.log(req.user._id)
+            const tutor = await Tutor.findOne({ userId: req.user._id }).select('StudyLevel premiumEssays approved');
+
+            if (!tutor) {
+                return res.status(404).json({ message: 'Tutor not found.' });
+            }
+            if (!tutor.approved) {
+                return res.status(403).json({ message: 'Tutor is not approved yet.' });
+            }
+
+            const studyLevels = ["GCSE", "A-Level", "Bachelor", "Masters", "PhD"];
+
+            const tutorLevelIndex = studyLevels.indexOf(tutor.StudyLevel);
+
+            if (tutorLevelIndex === -1) {
+                return res.status(400).json({ message: 'Invalid tutor study level.' });
+            }
+
+            const query = {
+                status: 'Pending',
+                academicLevel: { $in: studyLevels.slice(0, tutorLevelIndex + 1) }
+            };
+
+            if (!tutor.premiumEssays) {
+                query.price = { $lte: 20 };
+            }
+
+            const essays = await Essay.find(query).select(
+                'title subject wordCount adjustedWordCount studentRequest academicLevel price'
+            );
+
+            if (!essays || essays.length === 0) {
+                return res.status(404).json({ message: 'No essays available.' });
+            }
+
+            return res.status(200).json({
+                message: 'Essays retrieved successfully.',
+                essays,
+            });
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: 'Internal server error', error: error.message });
+        }
+    }
+
+
+    async getTutorProfile(req, res) {
+        console.log('Getting tutor profile');
+        try {
+            const tutor = await Tutor.findOne({ userId: req.user._id });
+            if (tutor) {
+                return res.status(200).json({
+                    message: 'Tutor profile retrieved successfully!',
+                    tutor: {
+                        ...tutor._doc, // Spread tutor data
+                        phone: tutor.phone
+                    }
+                });
+            } else {
+                return res.status(404).json({
+                    message: 'Tutor profile not found'
+                });
+            }
+        } catch (err) {
+            console.error(err);
+            return res.status(500).json({
+                message: 'Internal server error',
+                error: err.message
+            });
+        }
+    }
+
+    async markEssay(req, res) {
+        console.log("Marking essay...");
+        try {
+            const { essayID, feedback, score } = req.body;
+            const essay = await Essay.findById(essayID);
+            const tutor = await Tutor.findOne({ userId: req.user._id });
+            if (!tutor) {
+                return res.status(404).json({
+                    message: 'Tutor profile not found',
+                });
+            }
+            if (!essay) {
+                return res.status(404).json({
+                    message: 'Essay not found',
+                });
+            }
+
+            if (essay.markedBy && essay.markedBy.toString() !== tutor._id.toString()) {
+                return res.status(403).json({
+                    message: 'You are not authorized to mark this essay.',
+                });
+            }
+
+            essay.feedback = feedback;
+            essay.score = score;
+            essay.status = 'Completed';
+
+            if (essay.studentRequest === 'Feedback and Model Answer') {
+                if (!req.files || !req.files.modelAnswerFile) {
+                    return res.status(400).json({
+                        message: 'Model answer file is required for Feedback and Model Answer request.'
+                    });
+                }
+
+                const file = req.files.modelAnswerFile;
+                const modelAnswerURL = await uploadFile(file.buffer, file.originalname, file.mimetype);
+                essay.modelURL = modelAnswerURL;
+            }
+
+            await essay.save();
+
+            return res.status(200).json({
+                message: 'Essay marked successfully!',
+                essay
+            });
+
+        } catch (e) {
+            return res.status(400).json({
+                message: 'Internal server error',
+                error: e.message
+            });
+        }
+    }
+
+    async getEssay(req, res) {
+        console.log("Getting essay...");
+        const tutor = await Tutor.findOne({ userId: req.user._id });
+        if (!tutor) {
+            return res.status(404).json({
+                message: 'Tutor profile not found',
+            });
+        }
+        const { essayID } = req.body;
+        try {
+            const essay = await Essay.findByIdAndUpdate(
+                essayID,
+                {
+                    status: 'In Progress',
+                    markedBy: tutor._id
+                },
+                { new: true }
+            );
+
+            if (!essay) {
+                return res.status(404).json({
+                    message: 'Essay not found',
+                });
+            }
+
+            return res.status(200).json({
+                message: 'Essay retrieved successfully!',
+                essay
+            });
+        } catch (e) {
+            return res.status(400).json({
+                message: 'Internal server error',
+                error: e.message
+            });
+        }
+    }
+
+    async getInProgressEssays(req, res) {
+        try {
+            const tutor = await Tutor.findOne({ userId: req.user._id });
+            if (!tutor) {
+                return res.status(404).json({
+                    message: 'Tutor profile not found',
+                });
+            }
+            const essays = await Essay.find({
+                status: 'In Progress',
+                markedBy: tutor._id
+            })
+
+            if (essays.length === 0) {
+                return res.status(404).json({ message: 'No in-progress essays found.' });
+            }
+
+            res.status(200).json({ essays });
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ message: 'An error occurred while fetching essays.' });
+        }
+    }
+
+    async getCompletedEssays(req, res) {
+        try {
+            const tutor = await Tutor.findOne({ userId: req.user._id });
+            if (!tutor) {
+                return res.status(404).json({
+                    message: 'Tutor profile not found',
+                });
+            }
+            const essays = await Essay.find({
+                status: 'Completed',
+                markedBy: tutor._id
+            })
+
+            if (essays.length === 0) {
+                return res.status(404).json({ message: 'No completed essays found.' });
+            }
+
+            res.status(200).json({ essays });
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ message: 'An error occurred while fetching essays.' });
+        }
+    }
+
+    async getTutorProfilesforTutoring(req, res) {
+        try {
+            const tutors = await Tutoring.find({ status: 'Available' }).populate('tutorId', 'fullNameDBS university yearsOfExperience StudyLevel profilePicture');
+
+            if (!tutors || tutors.length === 0) {
+                return res.status(404).json({ message: 'No tutors available.' });
+            }
+
+            return res.status(200).json({
+                message: 'Tutors retrieved successfully.',
+                tutors: tutors.map(tutor => ({
+                    fullName: tutor.tutorId.fullNameDBS,
+                    university: tutor.tutorId.university,
+                    experience: tutor.tutorId.yearsOfExperience,
+                    studyLevel: tutor.tutorId.StudyLevel,
+                    profilePicture: tutor.tutorId.profilePicture,
+                    subject: tutor.subject,
+                    hourlyRate: tutor.hourlyRate,
+                    availability: tutor.availability,
+                    description: tutor.description,
+                    duration: tutor.duration
+                }))
+            });
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: 'Internal server error', error: error.message });
+        }
+    }
+
+    async updateTutoringProfile(req, res) {
+        try {
+            const { subject, hourlyRate, availability, description, duration } = req.body;
+
+            const existingProfile = await Tutoring.findOne({ tutorId: req.user._id });
+
+            if (existingProfile) {
+                // Only update fields if they are provided in the request
+                existingProfile.subject = subject || existingProfile.subject;
+                existingProfile.hourlyRate = hourlyRate || existingProfile.hourlyRate;
+                existingProfile.availability = availability || existingProfile.availability;
+                existingProfile.description = description || existingProfile.description;
+                existingProfile.duration = duration || existingProfile.duration;
+
+                await existingProfile.save();
+
+                return res.status(200).json({
+                    message: 'Tutoring profile updated successfully.',
+                    profile: existingProfile
+                });
+            } else {
+                // Create a new profile if one does not exist
+                const newProfile = new Tutoring({
+                    tutorId: req.user._id,
+                    subject: subject || '',
+                    hourlyRate: hourlyRate || 0,
+                    availability: availability || {
+                        monday: [],
+                        tuesday: [],
+                        wednesday: [],
+                        thursday: [],
+                        friday: [],
+                        saturday: [],
+                        sunday: []
+                    },
+                    description: description || '',
+                    duration: duration || 0
+                });
+
+                await newProfile.save();
+
+                return res.status(201).json({
+                    message: 'Tutoring profile created successfully.',
+                    profile: newProfile
+                });
+            }
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: 'Internal server error', error: error.message });
+        }
+    }
+}
+
+module.exports = new TutorController();
