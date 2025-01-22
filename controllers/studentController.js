@@ -1,9 +1,15 @@
 const { uploadFile } = require('../utils/AWS');
 const Student = require('../models/studentModel');
+const Tutor = require('../models/tutorModel');
+const TutoringSession = require("../models/tutoringSessionModel")
+const Tutoring = require("../models/tutoringModel")
 const Essay = require('../models/essayModel');
 const OpenAI = require("openai");
 const pdfParse = require('pdf-parse');
+const { createInstantMeeting } = require('../utils/createZoomMeeting');
+const schedule = require('node-schedule');
 // const pdfParse = require('pdf-parse');
+
 require('dotenv').config(); // Load environment variables from .env
 
 const openai = new OpenAI({
@@ -250,6 +256,80 @@ class StudentController {
         } catch (error) {
             console.error(error);
             res.status(500).json({ message: 'An error occurred while fetching essays.' });
+        }
+    }
+
+    async createTutoringSession(req, res) {
+        try {
+            const student = await Student.findOne({ userId: req.user._id });
+            if (!student) {
+                return res.status(404).json({ message: 'Student not found.' });
+            }
+
+            const { tutorId, purpose, startTime, endTime } = req.body;
+
+            if (!tutorId || !startTime || !endTime) {
+                return res.status(400).json({ message: 'Missing required fields: tutorId, startTime, and endTime.' });
+            }
+
+            const tutor = await Tutor.findOne({ _id: tutorId });
+            if (!tutor) {
+                return res.status(404).json({ message: 'Tutor not found.' });
+            }
+
+            const startTimeObj = new Date(startTime);
+            const endTimeObj = new Date(endTime);
+
+            // Determine the day of the week (e.g., 'monday')
+            const dayOfWeek = startTimeObj.toLocaleString('en-us', { weekday: 'long' }).toLowerCase();
+            console.log(dayOfWeek);
+            // Format the time range as "HH:mm-HH:mm"
+            const timeRange = `${startTimeObj.toISOString().slice(11, 16)}-${endTimeObj.toISOString().slice(11, 16)}`;
+            console.log(timeRange);
+            console.log(tutor._id);
+            // Check and remove the availability from TutoringSession
+            const existingSession = await Tutoring.findOne({ tutorId: tutor._id });
+            const dayAvailability = existingSession.availability[dayOfWeek];
+            if (!dayAvailability.includes(timeRange)) {
+                return res.status(400).json({ message: `Time slot ${timeRange} is not available on ${dayOfWeek}.` });
+            }
+                // Remove the time slot
+                existingSession.availability[dayOfWeek] = existingSession.availability[dayOfWeek].filter(slot => slot !== timeRange);
+                await existingSession.save();
+
+                const tutoringSession = await TutoringSession.create({
+                    tutorId: tutor._id,
+                    studentId: student._id,
+                    purpose,
+                    startTime,
+                    endTime
+                });
+
+                // Schedule Zoom meeting creation
+                const duration = (endTimeObj - startTimeObj) / (1000 * 60); // Calculate duration in minutes
+                const topic = `Tutoring Session for ${purpose}`;
+
+                schedule.scheduleJob(startTimeObj, async () => {
+                    try {
+                        const meetingDetails = await createInstantMeeting(topic, duration);
+                        tutoringSession.meetingLink = meetingDetails.join_url;
+                        await tutoringSession.save();
+
+                        // Restore availability in TutoringSession
+                        existingSession.availability[dayOfWeek].push(timeRange);
+                        existingSession.availability[dayOfWeek].sort(); // Optional: Keep availability sorted
+                        await existingSession.save();
+
+                        console.log(`Zoom meeting created and availability restored for session ID: ${tutoringSession._id}`);
+                    } catch (error) {
+                        console.error(`Failed to create Zoom meeting for session ID: ${tutoringSession._id}`, error.message);
+                    }
+                });
+
+            res.status(200).json({ tutoringSession });
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ message: 'An error occurred while creating tutoring session.' });
         }
     }
 

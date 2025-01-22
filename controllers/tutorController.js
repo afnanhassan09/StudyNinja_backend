@@ -1,6 +1,7 @@
 const { uploadFile } = require('../utils/AWS');
 const Tutor = require('../models/tutorModel');
 const EssayModel = require('../models/modelEssayModel');
+const Tutoring = require('../models/tutoringModel');
 const Essay = require('../models/essayModel');
 
 class TutorController {
@@ -189,7 +190,6 @@ class TutorController {
             return res.status(500).json({ message: 'Internal server error', error: error.message });
         }
     }
-
 
     async getTutorProfile(req, res) {
         console.log('Getting tutor profile');
@@ -387,10 +387,11 @@ class TutorController {
 
     async updateTutoringProfile(req, res) {
         try {
+            console.log("Updating tutoring profile...");
             const { subject, hourlyRate, availability, description, duration } = req.body;
 
             const existingProfile = await Tutoring.findOne({ tutorId: req.user._id });
-
+            const tutor = await Tutor.findOne({ userId: req.user._id });
             if (existingProfile) {
                 // Only update fields if they are provided in the request
                 existingProfile.subject = subject || existingProfile.subject;
@@ -408,7 +409,7 @@ class TutorController {
             } else {
                 // Create a new profile if one does not exist
                 const newProfile = new Tutoring({
-                    tutorId: req.user._id,
+                    tutorId: tutor._id,
                     subject: subject || '',
                     hourlyRate: hourlyRate || 0,
                     availability: availability || {
@@ -436,6 +437,26 @@ class TutorController {
             return res.status(500).json({ message: 'Internal server error', error: error.message });
         }
     }
+
+    async getTutoringProfile(req, res) {
+        try {
+            const tutor = await Tutor.findOne({ userId: req.user._id });
+            const profile = await Tutoring.findOne({ tutorId: tutor._id });
+
+            if (!profile) {
+                return res.status(404).json({ message: 'Tutoring profile not found.' });
+            }
+
+            return res.status(200).json({
+                message: 'Tutoring profile retrieved successfully.',
+                profile
+            });
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: 'Internal server error', error: error.message });
+        }
+    }
+
 }
 
 module.exports = new TutorController();

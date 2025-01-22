@@ -21,5 +21,6 @@ router.get('/essays/in-progress', auth, upload.array('files'), StudentController
 
 router.get('/essays/completed', auth, upload.array('files'), StudentController.getCompletedEssays)
 
+router.post('/createTutoringSession', auth, StudentController.createTutoringSession)
 
 module.exports = router
