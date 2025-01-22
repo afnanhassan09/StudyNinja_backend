@@ -32,4 +32,11 @@ router.get('/getTutoringProfile', auth, TutorController.getTutoringProfile);
 
 router.get('/getDashboard', auth, TutorController.getDashboard);
 
+router.get('/getPendingTutoringSessions', auth, TutorController.getPendingTutoringSessions);
+
+router.get('/getInProgressTutoringSessions', auth, TutorController.getInProgressTutoringSessions);
+
+router.get('/getCompletedTutoringSessions', auth, TutorController.getCompletedTutoringSessions);
+
+
 module.exports = router;

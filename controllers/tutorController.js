@@ -507,6 +507,92 @@ class TutorController {
         }
     };
 
+    async getPendingTutoringSessions(req, res) {
+        try {
+            const tutor = await Tutor.findOne({ userId: req.user._id });
+            if (!tutor) {
+                return res.status(404).json({ message: 'Tutor profile not found.' });
+            }
+            console.log(tutor._id);
+            const currentDateTime = new Date();
+            console.log(currentDateTime);
+            const pendingSessions = await TutoringSession.find({
+                tutorId: tutor._id,
+                startTime: { $gt: currentDateTime }, 
+            });
+
+            if (pendingSessions.length === 0) {
+                return res.status(404).json({ message: 'No pending tutoring sessions found.' });
+            }
+
+            return res.status(200).json({
+                message: 'Pending tutoring sessions retrieved successfully.',
+                sessions: pendingSessions,
+            });
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: 'Internal server error', error: error.message });
+        }
+    }
+
+    async getCompletedTutoringSessions(req, res) {
+        try {
+            const tutor = await Tutor.findOne({ userId: req.user._id });
+            if (!tutor) {
+                return res.status(404).json({ message: 'Tutor profile not found.' });
+            }
+
+            const currentDateTime = new Date();
+
+            const completedSessions = await TutoringSession.find({
+                tutorId: tutor._id,
+                endTime: { $lt: currentDateTime }, // End time is in the past
+            });
+
+            if (completedSessions.length === 0) {
+                return res.status(404).json({ message: 'No completed tutoring sessions found.' });
+            }
+
+            return res.status(200).json({
+                message: 'Completed tutoring sessions retrieved successfully.',
+                sessions: completedSessions,
+            });
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: 'Internal server error', error: error.message });
+        }
+    }
+
+    async getInProgressTutoringSessions(req, res) {
+        try {
+            const tutor = await Tutor.findOne({ userId: req.user._id });
+            if (!tutor) {
+                return res.status(404).json({ message: 'Tutor profile not found.' });
+            }
+
+            const currentDateTime = new Date();
+
+            const inProgressSessions = await TutoringSession.find({
+                tutorId: tutor._id,
+                startTime: { $lte: currentDateTime },
+                endTime: { $gte: currentDateTime },  
+            });
+
+            if (inProgressSessions.length === 0) {
+                return res.status(404).json({ message: 'No in-progress tutoring sessions found.' });
+            }
+
+            return res.status(200).json({
+                message: 'In-progress tutoring sessions retrieved successfully.',
+                sessions: inProgressSessions,
+            });
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: 'Internal server error', error: error.message });
+        }
+    }
+
+
 }
 
 module.exports = new TutorController();
