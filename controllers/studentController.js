@@ -8,6 +8,7 @@ const OpenAI = require("openai");
 const pdfParse = require('pdf-parse');
 const { createInstantMeeting } = require('../utils/createZoomMeeting');
 const schedule = require('node-schedule');
+const Rating = require('../models/ratingModel');
 // const pdfParse = require('pdf-parse');
 
 require('dotenv').config(); // Load environment variables from .env
@@ -136,10 +137,10 @@ class StudentController {
 
             // Calculate platform commission
             const platformCommission = Math.round(price * 0.1 * 100) / 100; // 10% commission
-
+            const student = await Student.findOne({ userId: req.user._id });
             // Save essay to the database
             const essay = await Essay.create({
-                studentID: req.user._id, // Assuming authenticated user ID is available in req.user
+                studentID: student._id, // Assuming authenticated user ID is available in req.user
                 title,
                 subject,
                 academicLevel,
@@ -293,38 +294,38 @@ class StudentController {
             if (!dayAvailability.includes(timeRange)) {
                 return res.status(400).json({ message: `Time slot ${timeRange} is not available on ${dayOfWeek}.` });
             }
-                // Remove the time slot
-                existingSession.availability[dayOfWeek] = existingSession.availability[dayOfWeek].filter(slot => slot !== timeRange);
-                await existingSession.save();
+            // Remove the time slot
+            existingSession.availability[dayOfWeek] = existingSession.availability[dayOfWeek].filter(slot => slot !== timeRange);
+            await existingSession.save();
 
-                const tutoringSession = await TutoringSession.create({
-                    tutorId: tutor._id,
-                    studentId: student._id,
-                    purpose,
-                    startTime,
-                    endTime
-                });
+            const tutoringSession = await TutoringSession.create({
+                tutorId: tutor._id,
+                studentId: student._id,
+                purpose,
+                startTime,
+                endTime
+            });
 
-                // Schedule Zoom meeting creation
-                const duration = (endTimeObj - startTimeObj) / (1000 * 60); // Calculate duration in minutes
-                const topic = `Tutoring Session for ${purpose}`;
+            // Schedule Zoom meeting creation
+            const duration = (endTimeObj - startTimeObj) / (1000 * 60); // Calculate duration in minutes
+            const topic = `Tutoring Session for ${purpose}`;
 
-                schedule.scheduleJob(startTimeObj, async () => {
-                    try {
-                        const meetingDetails = await createInstantMeeting(topic, duration);
-                        tutoringSession.meetingLink = meetingDetails.join_url;
-                        await tutoringSession.save();
+            schedule.scheduleJob(startTimeObj, async () => {
+                try {
+                    const meetingDetails = await createInstantMeeting(topic, duration);
+                    tutoringSession.meetingLink = meetingDetails.join_url;
+                    await tutoringSession.save();
 
-                        // Restore availability in TutoringSession
-                        existingSession.availability[dayOfWeek].push(timeRange);
-                        existingSession.availability[dayOfWeek].sort(); // Optional: Keep availability sorted
-                        await existingSession.save();
+                    // Restore availability in TutoringSession
+                    existingSession.availability[dayOfWeek].push(timeRange);
+                    existingSession.availability[dayOfWeek].sort(); // Optional: Keep availability sorted
+                    await existingSession.save();
 
-                        console.log(`Zoom meeting created and availability restored for session ID: ${tutoringSession._id}`);
-                    } catch (error) {
-                        console.error(`Failed to create Zoom meeting for session ID: ${tutoringSession._id}`, error.message);
-                    }
-                });
+                    console.log(`Zoom meeting created and availability restored for session ID: ${tutoringSession._id}`);
+                } catch (error) {
+                    console.error(`Failed to create Zoom meeting for session ID: ${tutoringSession._id}`, error.message);
+                }
+            });
 
             res.status(200).json({ tutoringSession });
         } catch (error) {
@@ -333,6 +334,125 @@ class StudentController {
         }
     }
 
+    async getStudentDashboard(req, res) {
+        try {
+            // Fetch the student associated with the logged-in user
+            const student = await Student.findOne({ userId: req.user._id });
+            if (!student) {
+                return res.status(404).json({ message: 'Student not found' });
+            }
+
+            // Get all submitted essays for the student
+            const submittedEssays = await Essay.find({ student: student._id, status: 'submitted' });
+            const essaysSubmitted = submittedEssays.length;
+
+            // Get all interviews completed by the student
+            const completedInterviews = await TutoringSession.find({
+                studentId: student._id,
+                endDateTime: { $lte: new Date() }, // Only include sessions that have ended
+            });
+            const interviewsCompleted = completedInterviews.length;
+
+            // Calculate the average percentage score for submitted essays
+            const totalPercentage = submittedEssays.reduce((sum, essay) => sum + (essay.percentage || 0), 0);
+            const averagePercentage = essaysSubmitted > 0 ? (totalPercentage / essaysSubmitted).toFixed(1) : 0;
+
+            // Prepare the response object
+            const dashboardData = {
+                essaysSubmitted,
+                interviewsCompleted,
+                averagePercentage: `${averagePercentage} %`
+            };
+
+            // Send the response
+            return res.status(200).json(dashboardData);
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: 'Internal server error', error: error.message });
+        }
+    };
+
+    async giveRating(req, res) {
+        try {
+            const student = await Student.findOne({ userId: req.user._id });
+            const { type, ratings, feedback, essayId, tutoringId } = req.body;
+
+            if (!['essay', 'tutoring'].includes(type)) {
+                return res.status(400).json({ message: 'Invalid rating type. Must be either "essay" or "tutoring".' });
+            }
+
+            if (type === 'essay' && !essayId) {
+                return res.status(400).json({ message: 'Essay ID is required for essay ratings.' });
+            }
+            if (type === 'tutoring' && !tutoringId) {
+                return res.status(400).json({ message: 'Tutoring session ID is required for tutoring ratings.' });
+            }
+
+            let relatedObject;
+            let tutorId;
+
+            if (type === 'essay') {
+                relatedObject = await Essay.findById(essayId).populate('markedBy'); // Fetch tutor details
+                if (!relatedObject) {
+                    return res.status(404).json({ message: 'Essay not found.' });
+                }
+                tutorId = relatedObject.markedBy;
+            } else if (type === 'tutoring') {
+                relatedObject = await TutoringSession.findById(tutoringId);
+                if (!relatedObject) {
+                    return res.status(404).json({ message: 'Tutoring session not found.' });
+                }
+                tutorId = relatedObject.tutorId;
+            }
+
+            // Check if relatedObject has a student field
+            if (!relatedObject.studentID) {
+                return res.status(400).json({ message: 'The related object is missing a student field.' });
+            }
+
+            if (relatedObject.studentID.toString() !== student._id.toString()) {
+                return res.status(403).json({ message: 'You are not authorized to rate this item.' });
+            }
+
+            if (relatedObject.rated) {
+                return res.status(400).json({ message: 'This item has already been rated.' });
+            }
+
+            const newRating = new Rating({
+                student: student._id,
+                teacher: tutorId,
+                essay: type === 'essay' ? essayId : undefined,
+                tutoring: type === 'tutoring' ? tutoringId : undefined,
+                ratings,
+                feedback,
+                type,
+            });
+
+            await newRating.save();
+            relatedObject.rated = true;
+            await relatedObject.save();
+
+            return res.status(201).json({ message: 'Rating submitted successfully.', rating: newRating });
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: 'Internal server error', error: error.message });
+        }
+    }
+
+    async getPendingRating(req, res) {
+        try {
+            const student = await Student.findOne({ userId: req.user._id });
+            if (!student) {
+                return res.status(404).json({ message: 'Student not found' });
+            }
+            const essay = await Essay.find({ studentID: student._id, rated: false });
+            const tutoring = await TutoringSession.find({ student: student._id, rated: false });
+            return res.status(200).json({ essay, tutoring });
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: 'Internal server error', error: error.message });
+        }
+    }
 }
 
 module.exports = new StudentController();

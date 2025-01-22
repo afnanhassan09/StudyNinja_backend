@@ -30,4 +30,6 @@ router.post('/updateTutoringProfile', auth, TutorController.updateTutoringProfil
 
 router.get('/getTutoringProfile', auth, TutorController.getTutoringProfile);
 
+router.get('/getDashboard', auth, TutorController.getDashboard);
+
 module.exports = router;

@@ -75,6 +75,10 @@ const EssaySchema = mongoose.Schema({
     adjustedWordCount: {
         type: Number, // For storing student's adjusted word count
         default: null
+    },
+    rated: {
+        type: Boolean,
+        default: false
     }
 }, {
     timestamps: true,

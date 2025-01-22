@@ -23,4 +23,10 @@ router.get('/essays/completed', auth, upload.array('files'), StudentController.g
 
 router.post('/createTutoringSession', auth, StudentController.createTutoringSession)
 
+router.get('/getDashboard', auth, StudentController.getStudentDashboard)
+
+router.get('/getPendingRating', auth, StudentController.getPendingRating)
+
+router.post('/giveRating', auth, StudentController.giveRating)
+
 module.exports = router

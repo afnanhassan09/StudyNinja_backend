@@ -14,7 +14,10 @@ const Rating = new mongoose.Schema({
     essay: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Essay',
-        required: true,
+    },
+    tutoring: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'TutoringSession',
     },
     ratings: {
         type: Number,
@@ -28,7 +31,7 @@ const Rating = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['essay', 'interview'],
+        enum: ['essay', 'tutoring'],
         required: true,
     },
     createdAt: {

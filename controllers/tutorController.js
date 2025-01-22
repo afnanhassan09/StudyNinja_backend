@@ -3,6 +3,8 @@ const Tutor = require('../models/tutorModel');
 const EssayModel = require('../models/modelEssayModel');
 const Tutoring = require('../models/tutoringModel');
 const Essay = require('../models/essayModel');
+const Rating = require('../models/ratingModel');
+const TutoringSession = require('../models/tutoringSessionModel');
 
 class TutorController {
     async requestForTutor(req, res) {
@@ -367,6 +369,7 @@ class TutorController {
             return res.status(200).json({
                 message: 'Tutors retrieved successfully.',
                 tutors: tutors.map(tutor => ({
+                    _id: tutor._id,
                     fullName: tutor.tutorId.fullNameDBS,
                     university: tutor.tutorId.university,
                     experience: tutor.tutorId.yearsOfExperience,
@@ -441,6 +444,9 @@ class TutorController {
     async getTutoringProfile(req, res) {
         try {
             const tutor = await Tutor.findOne({ userId: req.user._id });
+            if (!tutor) {
+                return res.status(404).json({ message: 'Tutor not found.' });
+            }
             const profile = await Tutoring.findOne({ tutorId: tutor._id });
 
             if (!profile) {
@@ -449,6 +455,7 @@ class TutorController {
 
             return res.status(200).json({
                 message: 'Tutoring profile retrieved successfully.',
+                tutor,
                 profile
             });
         } catch (error) {
@@ -456,6 +463,49 @@ class TutorController {
             return res.status(500).json({ message: 'Internal server error', error: error.message });
         }
     }
+
+    async getDashboard(req, res) {
+        try {
+            const tutor = await Tutor.findOne({ userId: req.user._id });
+            if (!tutor) {
+                return res.status(404).json({ message: 'Tutor not found' });
+            }
+
+            const essays = await Essay.find({ markedBy: tutor._id, status: 'Completed' });
+            const essaysReviewed = essays.length;
+
+            const currentDateTime = new Date();
+            const tutoringSessions = await TutoringSession.find({
+                tutorId: tutor._id,
+                endDateTime: { $lte: currentDateTime }
+            });
+            const interviewsConducted = tutoringSessions.length;
+
+            const ratingResult = await Rating.aggregate([
+                { $match: { teacher: tutor._id } },
+                { $group: { _id: null, avgRating: { $avg: '$ratings' } } },
+            ]);
+
+            const avgRating = ratingResult.length > 0 ? parseFloat(ratingResult[0].avgRating.toFixed(1)) : 0;
+
+            const tutoring = await Tutoring.findOne({ tutorId: tutor._id });
+            const essayEarning = essays.reduce((sum, essay) => sum + (essay.price || 0), 0);
+            const tutoringEarning = interviewsConducted * (tutoring.hourlyRate || 0);
+            const earnings = essayEarning + tutoringEarning;
+            const dashboardData = {
+                essaysReviewed,
+                interviewsConducted,
+                rating: avgRating,
+                earnings: `$${earnings.toFixed(2)}`
+            };
+
+            // Send the response
+            return res.status(200).json(dashboardData);
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: 'Internal server error', error: error.message });
+        }
+    };
 
 }
 
