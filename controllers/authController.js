@@ -37,7 +37,7 @@ class AuthController {
                 role,
                 phone,
                 emailVerificationCode: crypto.createHash('sha256').update(emailVerificationCode).digest('hex'),
-                emailVerificationExpiry: Date.now() + 10 * 60 * 1000, // 10 minutes
+                emailVerificationExpiry: Date.now() + 1 * 60 * 1000, // 10 minutes
             });
 
             await user.save();
@@ -89,9 +89,9 @@ class AuthController {
             await user.save();
 
             // Generate JWT token
-            const token = jwt.sign({ userId: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+            // const token = jwt.sign({ userId: user._id, role: user.role }, process.env.JWT_SECRET_, { expiresIn: '1h' });
 
-            res.json({ message: 'Email verified successfully.', token });
+            res.json({ message: 'Email verified successfully.' });
         } catch (error) {
             console.error('Email verification error:', error);
             res.status(500).json({ message: 'Error during email verification.', error: error.message });
@@ -120,7 +120,7 @@ class AuthController {
             // Generate a new email verification code
             const emailVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
             user.emailVerificationCode = crypto.createHash('sha256').update(emailVerificationCode).digest('hex');
-            user.emailVerificationExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+            user.emailVerificationExpiry = Date.now() + 2 * 60 * 1000; // 10 minutes
             await user.save();
 
             // Send the new verification code via email
@@ -164,7 +164,7 @@ class AuthController {
             // Generate a new 2FA code
             const twoFAToken = Math.floor(100000 + Math.random() * 900000).toString();
             user.twoFAToken = crypto.createHash('sha256').update(twoFAToken).digest('hex');
-            user.twoFATokenExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+            user.twoFATokenExpiry = Date.now() + 1 * 60 * 1000; // 10 minutes
             await user.save();
 
             // Send the new 2FA code via email
@@ -261,7 +261,7 @@ class AuthController {
             user.twoFATokenExpiry = null;
             await user.save();
 
-            const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
+            const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET_KEY, { expiresIn: '1M' });
 
             res.json({
                 message: '2FA verified successfully.',
