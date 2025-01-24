@@ -375,6 +375,9 @@ class StudentController {
     async giveRating(req, res) {
         try {
             const student = await Student.findOne({ userId: req.user._id });
+            if (!student) {
+                return res.status(404).json({ message: 'Student not found' });
+            }
             const { type, ratings, feedback, essayId, tutoringId } = req.body;
 
             if (!['essay', 'tutoring'].includes(type)) {
