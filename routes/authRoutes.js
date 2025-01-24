@@ -6,6 +6,8 @@ const AuthController = require('../controllers/authController');
 // User Registration
 router.post('/register', AuthController.register);
 
+router.post('/resendCode', AuthController.resendVerificationCode);
+
 // User Login (Step 1: Validate email and password, send 2FA code)
 router.post('/login', AuthController.login);
 

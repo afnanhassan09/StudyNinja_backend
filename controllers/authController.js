@@ -21,7 +21,7 @@ class AuthController {
                 return res.status(400).json({ message: 'User already registered' });
             }
 
-            if (!['Student', 'Tutor', 'Admin'].includes(role)) {
+            if (!['student', 'tutor', 'admin'].includes(role)) {
                 return res.status(400).json({ message: 'Invalid role. Must be "Student", "Tutor", or "Admin".' });
             }
 
@@ -61,6 +61,8 @@ class AuthController {
 
     // Email Verification
     async verifyEmail(req, res) {
+        console.log("Verify Email");
+        console.log(req.body);
         try {
             const { email, emailVerificationCode } = req.body;
 
@@ -81,7 +83,6 @@ class AuthController {
             ) {
                 return res.status(400).json({ message: 'Invalid or expired email verification code.' });
             }
-
             user.emailVerified = true;
             user.emailVerificationCode = null;
             user.emailVerificationExpiry = null;
@@ -93,6 +94,51 @@ class AuthController {
             res.status(500).json({ message: 'Error during email verification.', error: error.message });
         }
     }
+
+    // Resend Email Verification Code
+    async resendVerificationCode (req, res){
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ message: 'Email is required.' });
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase() });
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+
+        if (user.emailVerified) {
+            return res.status(400).json({ message: 'Email is already verified.' });
+        }
+
+        // Generate a new email verification code
+        const emailVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+        user.emailVerificationCode = crypto.createHash('sha256').update(emailVerificationCode).digest('hex');
+        user.emailVerificationExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+        await user.save();
+
+        // Send the new verification code via email
+        try {
+            await sendEmail(
+                user.email,
+                'Resend Email Verification Code',
+                `Your new email verification code is: ${emailVerificationCode}`
+            );
+        } catch (emailError) {
+            console.error('Error sending Email:', emailError);
+            return res.status(500).json({ message: 'Error sending email verification code.' });
+        }
+
+        res.json({ message: 'Verification code has been resent to your email.' });
+    } catch (error) {
+        console.error('Resend verification code error:', error);
+        res.status(500).json({ message: 'Error resending verification code.', error: error.message });
+    }
+};
+
 
     // Login Step 1: Validate Email and Password, Send 2FA Code
     login = async (req, res) => {
