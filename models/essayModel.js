@@ -79,6 +79,10 @@ const EssaySchema = mongoose.Schema({
     rated: {
         type: Boolean,
         default: false
+    },
+    plus_18: {
+        type: Boolean,
+        default: false
     }
 }, {
     timestamps: true,

@@ -17,6 +17,9 @@ router.post('/verifyEmail', AuthController.verifyEmail);
 // 2FA Verification (Step 2: Verify 2FA code and log in)
 router.post('/verify2FA', AuthController.verify2FA);
 
+// Request code Reset
+router.post('/resend2FA', auth, AuthController.resend2FACode);
+
 // Request Password Reset
 router.post('/requestPasswordReset', auth, AuthController.requestPasswordReset);
 

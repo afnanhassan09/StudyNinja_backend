@@ -88,7 +88,10 @@ class AuthController {
             user.emailVerificationExpiry = null;
             await user.save();
 
-            res.json({ message: 'Email verified successfully.' });
+            // Generate JWT token
+            const token = jwt.sign({ userId: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+            res.json({ message: 'Email verified successfully.', token });
         } catch (error) {
             console.error('Email verification error:', error);
             res.status(500).json({ message: 'Error during email verification.', error: error.message });
@@ -96,49 +99,92 @@ class AuthController {
     }
 
     // Resend Email Verification Code
-    async resendVerificationCode (req, res){
-    try {
-        const { email } = req.body;
-
-        if (!email) {
-            return res.status(400).json({ message: 'Email is required.' });
-        }
-
-        const user = await User.findOne({ email: email.toLowerCase() });
-
-        if (!user) {
-            return res.status(404).json({ message: 'User not found.' });
-        }
-
-        if (user.emailVerified) {
-            return res.status(400).json({ message: 'Email is already verified.' });
-        }
-
-        // Generate a new email verification code
-        const emailVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-        user.emailVerificationCode = crypto.createHash('sha256').update(emailVerificationCode).digest('hex');
-        user.emailVerificationExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
-        await user.save();
-
-        // Send the new verification code via email
+    async resendVerificationCode(req, res) {
         try {
-            await sendEmail(
-                user.email,
-                'Resend Email Verification Code',
-                `Your new email verification code is: ${emailVerificationCode}`
-            );
-        } catch (emailError) {
-            console.error('Error sending Email:', emailError);
-            return res.status(500).json({ message: 'Error sending email verification code.' });
+            const { email } = req.body;
+
+            if (!email) {
+                return res.status(400).json({ message: 'Email is required.' });
+            }
+
+            const user = await User.findOne({ email: email.toLowerCase() });
+
+            if (!user) {
+                return res.status(404).json({ message: 'User not found.' });
+            }
+
+            if (user.emailVerified) {
+                return res.status(400).json({ message: 'Email is already verified.' });
+            }
+
+            // Generate a new email verification code
+            const emailVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+            user.emailVerificationCode = crypto.createHash('sha256').update(emailVerificationCode).digest('hex');
+            user.emailVerificationExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+            await user.save();
+
+            // Send the new verification code via email
+            try {
+                await sendEmail(
+                    user.email,
+                    'Resend Email Verification Code',
+                    `Your new email verification code is: ${emailVerificationCode}`
+                );
+            } catch (emailError) {
+                console.error('Error sending Email:', emailError);
+                return res.status(500).json({ message: 'Error sending email verification code.' });
+            }
+
+            res.json({ message: 'Verification code has been resent to your email.' });
+        } catch (error) {
+            console.error('Resend verification code error:', error);
+            res.status(500).json({ message: 'Error resending verification code.', error: error.message });
         }
+    };
 
-        res.json({ message: 'Verification code has been resent to your email.' });
-    } catch (error) {
-        console.error('Resend verification code error:', error);
-        res.status(500).json({ message: 'Error resending verification code.', error: error.message });
+    // Resend 2FA Code
+    async resend2FACode(req, res) {
+        try {
+            const { email } = req.body;
+
+            if (!email) {
+                return res.status(400).json({ message: 'Email is required.' });
+            }
+
+            const user = await User.findOne({ email: email.toLowerCase() });
+
+            if (!user) {
+                return res.status(404).json({ message: 'User not found.' });
+            }
+
+            if (!user.emailVerified) {
+                return res.status(403).json({ message: 'Email is not verified.' });
+            }
+
+            // Generate a new 2FA code
+            const twoFAToken = Math.floor(100000 + Math.random() * 900000).toString();
+            user.twoFAToken = crypto.createHash('sha256').update(twoFAToken).digest('hex');
+            user.twoFATokenExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+            await user.save();
+
+            // Send the new 2FA code via email
+            try {
+                await sendEmail(
+                    user.email,
+                    'Resend 2FA Code',
+                    `Your new 2FA code is: ${twoFAToken}`
+                );
+            } catch (emailError) {
+                console.error('Error sending Email:', emailError);
+                return res.status(500).json({ message: 'Error sending 2FA code.' });
+            }
+
+            res.json({ message: '2FA code has been resent to your email.' });
+        } catch (error) {
+            console.error('Resend 2FA code error:', error);
+            res.status(500).json({ message: 'Error resending 2FA code.', error: error.message });
+        }
     }
-};
-
 
     // Login Step 1: Validate Email and Password, Send 2FA Code
     login = async (req, res) => {

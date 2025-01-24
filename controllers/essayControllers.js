@@ -1,6 +1,7 @@
 const { uploadFile } = require('../utils/AWS');
 const { Configuration, OpenAIApi } = require('openai');
 const Essay = require('../models/essayModel');
+const Tutor = require('../models/tutorModel');
 
 require('dotenv').config();
 
@@ -58,24 +59,29 @@ class EssayController {
 
     async getTutorView(req, res) {
         try {
-            const tutor = await Tutor.findById(req.user._id).select('StudyLevel');
-
+            const tutor = await Tutor.findById(req.user._id).select('StudyLevel hasDBS');
+            
             if (!tutor) {
                 return res.status(404).json({ message: 'Tutor not found.' });
             }
 
             const studyLevels = ["GCSE", "A-Level", "Bachelor", "Masters", "PhD"];
-
             const tutorLevelIndex = studyLevels.indexOf(tutor.StudyLevel);
 
             if (tutorLevelIndex === -1) {
                 return res.status(400).json({ message: 'Invalid tutor study level.' });
             }
 
-            const essays = await Essay.find({
+            const essayQuery = {
                 status: 'Pending',
                 academicLevel: { $in: studyLevels.slice(0, tutorLevelIndex + 1) }
-            }).select(
+            };
+
+            if (!tutor.hasDBS) {
+                essayQuery.plus_18 = true;
+            }
+
+            const essays = await Essay.find(essayQuery).select(
                 'title subject wordCount adjustedWordCount studentRequest academicLevel price'
             );
 

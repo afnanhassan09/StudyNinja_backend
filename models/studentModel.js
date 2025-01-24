@@ -22,9 +22,13 @@ const Student = new mongoose.Schema(
             type: String,
             default: null,
         },
+        dateOfBirth: {
+            type: Date,
+            default: null,
+        },
     },
     {
-        timestamps: true, 
+        timestamps: true,
     }
 );
 

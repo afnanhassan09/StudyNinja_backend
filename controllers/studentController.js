@@ -24,7 +24,7 @@ class StudentController {
         console.log('Updating student profile');
         try {
             const files = req.files;
-            const { major, university, bio, profilePicture } = req.body; // Extract profile fields
+            const { major, university, bio, dateOfBirth } = req.body; // Extract profile fields
 
             let profilePictureUrl = null;
 
@@ -66,6 +66,7 @@ class StudentController {
                     university,
                     bio,
                     profilePicture: profilePictureUrl,
+                    dateOfBirth,
                 });
 
                 return res.status(200).json({
@@ -139,6 +140,8 @@ class StudentController {
             const platformCommission = Math.round(price * 0.1 * 100) / 100; // 10% commission
             const student = await Student.findOne({ userId: req.user._id });
             // Save essay to the database
+            const dateOfBirth = student.dateOfBirth;
+            const isPlus18 = dateOfBirth && new Date(dateOfBirth).getFullYear() < new Date().getFullYear() - 18;
             const essay = await Essay.create({
                 studentID: student._id, // Assuming authenticated user ID is available in req.user
                 title,
@@ -150,6 +153,7 @@ class StudentController {
                 price,
                 platformCommission,
                 fileUrl: uploadedFile, // Set the AWS file URL
+                plus_18: isPlus18,
             });
 
             return res.status(200).json({
