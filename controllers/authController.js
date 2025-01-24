@@ -261,7 +261,7 @@ class AuthController {
             user.twoFATokenExpiry = null;
             await user.save();
 
-            const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET_KEY, { expiresIn: '1M' });
+            const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET_KEY, { expiresIn: '1d' });
 
             res.json({
                 message: '2FA verified successfully.',
@@ -286,10 +286,7 @@ class AuthController {
         try {
             const { email } = req.body;
 
-            // Ensure the email matches the authenticated user's email
-            if (req.user.email !== email) {
-                return res.status(403).json({ message: 'Email does not match the authenticated user.' });
-            }
+           
 
             const user = await User.findOne({ email: email.toLowerCase() });
             if (!user) {

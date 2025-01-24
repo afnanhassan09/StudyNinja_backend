@@ -18,10 +18,10 @@ router.post('/verifyEmail', AuthController.verifyEmail);
 router.post('/verify2FA', AuthController.verify2FA);
 
 // Request code Reset
-router.post('/resend2FA', auth, AuthController.resend2FACode);
+router.post('/resend2FA', AuthController.resend2FACode);
 
 // Request Password Reset
-router.post('/requestPasswordReset', auth, AuthController.requestPasswordReset);
+router.post('/requestPasswordReset', AuthController.requestPasswordReset);
 
 // Reset Password
 router.post('/resetPassword', AuthController.resetPassword);

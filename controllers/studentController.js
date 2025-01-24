@@ -218,7 +218,7 @@ class StudentController {
             })
 
             if (essays.length === 0) {
-                return res.status(404).json({ message: `No prending essays found for the given student.` });
+                return res.status(200).json({ message: `No prending essays found for the given student.` });
             }
 
             res.status(200).json({ essays });
