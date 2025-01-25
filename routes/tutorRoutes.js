@@ -8,6 +8,10 @@ const auth = require('../middleware/auth');
 
 router.post('/update-info', auth, upload.fields([
     { name: 'profilePicture', maxCount: 1 },
+    { name: 'passportURL', maxCount: 1 },
+    { name: 'UkBornOrAdoptedCertificate', maxCount: 1 },   
+    { name: 'validVisa', maxCount: 1 },   
+    { name: 'biometricResidencePermit', maxCount: 1 },   
     { name: 'certificateFile', maxCount: 1 },
     { name: 'universityDocuments', maxCount: 10 } // allow multiple documents
 ]), TutorController.requestForTutor);

@@ -273,7 +273,8 @@ class TutorController {
                     tutor: {
                         ...tutor._doc, // Spread tutor data
                         phone: tutor.phone,
-                        name: user.name
+                        name: user.name,
+                        name: user.email,
                     }
                 });
             } else {
