@@ -46,29 +46,74 @@ const Tutor = new mongoose.Schema(
             type: Boolean,
             default: false,
         },
-        hasDBS: {
+        approved: {
             type: Boolean,
             default: false
-        },
-        fullNameDBS: {
-            type: String,
-            default: null
-        },
-        certificateNumber: {
-            type: String,
-            default: null
-        },
-        certificateFileUrl: {
-            type: String,
-            default: null
         },
         universityDocuments: {
             type: [String],
         },
-        approved: {
+        hasDBS: {
+            type: Boolean,
+            default: false,
+        },
+        dbsDetails: {
+            fullName: {
+                type: String,
+                default: null,
+            },
+            certificateNumber: {
+                type: String,
+                default: null,
+            },
+            certificateFileUrl: {
+                type: String,
+                default: null,
+            },
+        },
+        rightToWork: {
+            type: Boolean,
+            default: false,
+        },
+        eligibility: {
+            type: String,
+            enum: ['BritishIrish', 'EuEeaSwiss', 'NonEuEea'],
+        },
+        documents: {
+            BritishIrish: {
+                passportURL: { type: String, default: null },
+                NINumber: { type: String, default: null },
+                UkBornOrAdoptedCertificateURL: { type: String, default: null },
+            },
+            EuEeaSwiss: {
+                shareCode: { type: String, default: null },
+                DOB: { type: Date, default: null },
+                passportURL: { type: String, default: null },
+            },
+            NonEuEea: {
+                biometricResidencePermitURL: { type: String, default: null },
+                validVisaURL: { type: String, default: null },
+            },
+        },
+        appliedForDBS: {
             type: Boolean,
             default: false
-        }
+        },
+        dbsApplicationDetails: {
+            fullName: {
+                type: String,
+                default: null,
+            },
+            phone: {
+                type: String,
+                default: null,
+            },
+            email: {
+                type: String,
+                default: null,
+            },
+        },
+
     },
     {
         timestamps: true,

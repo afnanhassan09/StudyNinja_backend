@@ -4,6 +4,7 @@ const EssayModel = require('../models/modelEssayModel');
 const Tutoring = require('../models/tutoringModel');
 const Essay = require('../models/essayModel');
 const Rating = require('../models/ratingModel');
+const User = require('../models/userModel');
 const TutoringSession = require('../models/tutoringSessionModel');
 
 class TutorController {
@@ -16,16 +17,20 @@ class TutorController {
                 subjects,
                 StudyLevel,
                 certifications,
+                rightToWork,
+                eligibility,
                 hasDBS,
-                fullNameDBS,
-                certificateNumber
+                NINumber,
+                appliedForDBS,
+                dbsApplicationDetails,
             } = req.body;
 
             const files = req.files;
             const userId = req.user._id;
+
             if (!yearsOfExperience || !university || !subjects) {
                 return res.status(400).json({
-                    message: 'Missing required fields:yearsOfExperience, university, or subjects.',
+                    message: 'Missing required fields: yearsOfExperience, university, or subjects.',
                 });
             }
 
@@ -39,16 +44,75 @@ class TutorController {
             }
 
             let profilePictureUrl = null;
-            let certificateFileUrl = null;
             const universityDocumentUrls = [];
+
+            // Upload documents for eligibility
+            const documentUrls = {
+                BritishIrish: {
+                    passportURL: null,
+                    NINumber: null,
+                    UkBornOrAdoptedCertificateURL: null,
+                },
+                EuEeaSwiss: {
+                    shareCode: null,
+                    DOB: null,
+                    passportURL: null,
+                },
+                NonEuEea: {
+                    biometricResidencePermitURL: null,
+                    validVisaURL: null,
+                },
+            };
 
             await Promise.all([
                 files.profilePicture ? uploadFile(files.profilePicture[0].buffer, files.profilePicture[0].originalname, files.profilePicture[0].mimetype).then(url => profilePictureUrl = url) : null,
-                files.certificateFile ? uploadFile(files.certificateFile[0].buffer, files.certificateFile[0].originalname, files.certificateFile[0].mimetype).then(url => certificateFileUrl = url) : null,
                 files.universityDocuments ? Promise.all(files.universityDocuments.map(doc =>
                     uploadFile(doc.buffer, doc.originalname, doc.mimetype).then(url => universityDocumentUrls.push(url))
-                )) : null
+                )) : null,
+                eligibility === 'BritishIrish' ? Promise.all([
+                    files.passportURL ? uploadFile(files.passportURL[0].buffer, files.passportURL[0].originalname, files.passportURL[0].mimetype).then(url => documentUrls.BritishIrish.passportURL = url) : null,
+                    files.UkBornOrAdoptedCertificate ? uploadFile(files.UkBornOrAdoptedCertificate[0].buffer, files.UkBornOrAdoptedCertificate[0].originalname, files.UkBornOrAdoptedCertificate[0].mimetype).then(url => documentUrls.BritishIrish.UkBornOrAdoptedCertificateURL = url) : null,
+                    documentUrls.BritishIrish.NINumber = NINumber || null
+                ]) : null,
+                eligibility === 'EuEeaSwiss' ? Promise.all([
+                    files.passportURL ? uploadFile(files.passportURL[0].buffer, files.passportURL[0].originalname, files.passportURL[0].mimetype).then(url => documentUrls.EuEeaSwiss.passportURL = url) : null,
+                    req.body.shareCode ? documentUrls.EuEeaSwiss.shareCode = req.body.shareCode : null,
+                    req.body.DOB ? documentUrls.EuEeaSwiss.DOB = req.body.DOB : null,
+                ]) : null,
+                eligibility === 'NonEuEea' ? Promise.all([
+                    files.biometricResidencePermit ? uploadFile(files.biometricResidencePermit[0].buffer, files.biometricResidencePermit[0].originalname, files.biometricResidencePermit[0].mimetype).then(url => documentUrls.NonEuEea.biometricResidencePermitURL = url) : null,
+                    files.validVisa ? uploadFile(files.validVisa[0].buffer, files.validVisa[0].originalname, files.validVisa[0].mimetype).then(url => documentUrls.NonEuEea.validVisaURL = url) : null,
+                ]) : null,
             ]);
+
+            const dbsDetails = {
+                fullName: null,
+                certificateNumber: null,
+                certificateFileUrl: null,
+            };
+
+            const dbsAppDetails = {
+                fullName: null,
+                phone: null,
+                email: null,
+            }
+
+            if (hasDBS) {
+                dbsDetails.fullName = req.body.fullNameDBS;
+                dbsDetails.certificateNumber = req.body.certificateNumber;
+                if (files.certificateFile) {
+                    dbsDetails.certificateFileUrl = await uploadFile(files.certificateFile[0].buffer, files.certificateFile[0].originalname, files.certificateFile[0].mimetype);
+                }
+            } else if (appliedForDBS) {
+                if (!dbsApplicationDetails || !dbsApplicationDetails.fullName || !dbsApplicationDetails.phone || !dbsApplicationDetails.email) {
+                    return res.status(400).json({
+                        message: 'Full name, phone, and email are required when appliedForDBS is true.',
+                    });
+                }
+                dbsDetails.fullName = dbsApplicationDetails.fullName;
+                dbsDetails.phone = dbsApplicationDetails.phone;
+                dbsDetails.email = dbsApplicationDetails.email;
+            }
 
             let tutor = await Tutor.findOne({ userId });
 
@@ -59,10 +123,6 @@ class TutorController {
                 tutor.profilePicture = profilePictureUrl || tutor.profilePicture;
                 tutor.subjects = parsedSubjects || tutor.subjects;
                 tutor.StudyLevel = StudyLevel || tutor.StudyLevel;
-                tutor.hasDBS = hasDBS !== undefined ? hasDBS : tutor.hasDBS;
-                tutor.fullNameDBS = fullNameDBS || tutor.fullNameDBS;
-                tutor.certificateNumber = certificateNumber || tutor.certificateNumber;
-                tutor.certificateFileUrl = certificateFileUrl || tutor.certificateFileUrl;
                 tutor.universityDocuments = universityDocumentUrls.length > 0 ? universityDocumentUrls : tutor.universityDocuments;
 
                 await tutor.save();
@@ -72,6 +132,12 @@ class TutorController {
                     tutor,
                 });
             } else {
+                if (!eligibility) {
+                    return res.status(400).json({
+                        message: 'Eligibility is required.',
+                    });
+                }
+
                 tutor = await Tutor.create({
                     userId,
                     yearsOfExperience,
@@ -79,11 +145,14 @@ class TutorController {
                     motivation: motivation || '',
                     profilePicture: profilePictureUrl || null,
                     subjects: parsedSubjects,
-                    StudyLevel: StudyLevel || 'None',
                     hasDBS: hasDBS || false,
-                    fullNameDBS: fullNameDBS || 'None',
-                    certificateNumber: certificateNumber || 'None',
-                    certificateFileUrl: certificateFileUrl || null,
+                    dbsDetails: dbsDetails,
+                    StudyLevel: StudyLevel || 'GCSE',
+                    rightToWork: rightToWork || false,
+                    eligibility: eligibility || null,
+                    documents: documentUrls,
+                    appliedForDBS: appliedForDBS,
+                    dbsApplicationDetails: dbsAppDetails,
                     universityDocuments: universityDocumentUrls,
                 });
 
@@ -198,11 +267,13 @@ class TutorController {
         try {
             const tutor = await Tutor.findOne({ userId: req.user._id });
             if (tutor) {
+                const user = await User.findOne({ _id: req.user._id });
                 return res.status(200).json({
                     message: 'Tutor profile retrieved successfully!',
                     tutor: {
                         ...tutor._doc, // Spread tutor data
-                        phone: tutor.phone
+                        phone: tutor.phone,
+                        name: user.name
                     }
                 });
             } else {
@@ -518,7 +589,7 @@ class TutorController {
             console.log(currentDateTime);
             const pendingSessions = await TutoringSession.find({
                 tutorId: tutor._id,
-                startTime: { $gt: currentDateTime }, 
+                startTime: { $gt: currentDateTime },
             });
 
             if (pendingSessions.length === 0) {
@@ -575,7 +646,7 @@ class TutorController {
             const inProgressSessions = await TutoringSession.find({
                 tutorId: tutor._id,
                 startTime: { $lte: currentDateTime },
-                endTime: { $gte: currentDateTime },  
+                endTime: { $gte: currentDateTime },
             });
 
             if (inProgressSessions.length === 0) {
@@ -592,7 +663,7 @@ class TutorController {
         }
     }
 
-    
+
 
 
 }
