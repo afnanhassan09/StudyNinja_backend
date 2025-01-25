@@ -46,6 +46,10 @@ router.get('/getInProgressTutoringSessions', auth, TutorController.getInProgress
 
 router.get('/getCompletedTutoringSessions', auth, TutorController.getCompletedTutoringSessions);
 
+router.get('/getAllContactsForTutor', auth, TutorController.getAllContactsForTutor);
+
+router.get('/getMessagesForTutor', auth, TutorController.getMessagesForTutor);
+
 
 
 module.exports = router;

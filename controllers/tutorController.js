@@ -144,6 +144,57 @@ class TutorController {
         }
     }
 
+    async getMessagesForTutor(req, res) {
+        try {
+            const studentID = req.params.studentID;
+            const tutor = await Tutor.findOne({ userId: req.user._id });
+
+            if (!tutor) {
+                return res.status(404).json({ error: 'Tutor not found' });
+            }
+
+            const messages = await Message.find({
+                $or: [
+                    { sender: tutor._id, recipient: studentID },
+                    { sender: studentID, recipient: tutor._id },
+                ],
+            }).sort({ timestamp: 1 });
+
+            return res.status(200).json({ messages });
+        } catch (error) {
+            console.error('Error fetching messages:', error);
+            return res.status(500).json({ error: 'Internal server error' });
+        }
+    }
+
+    async getAllContactsForTutor(req, res) {
+        try {
+            const tutor = await Tutor.findOne({ userId: req.user._id });
+
+            if (!tutor) {
+                return res.status(404).json({ error: 'Tutor not found' });
+            }
+
+            const studentIds = await Message.distinct('sender', {
+                recipient: tutor._id,
+            });
+
+            const additionalStudentIds = await Message.distinct('recipient', {
+                sender: tutor._id,
+            });
+
+            const uniqueStudentIds = Array.from(new Set([...studentIds, ...additionalStudentIds]));
+
+            const students = await Student.find({ _id: { $in: uniqueStudentIds } });
+
+            return res.status(200).json({ students });
+        } catch (error) {
+            console.error('Error fetching students:', error);
+            return res.status(500).json({ error: 'Internal server error' });
+        }
+    }
+
+
     async updateTutorProfile(req, res) {
         try {
             let tutor = await Tutor.findOne({ userId: req.user._id });
@@ -499,11 +550,11 @@ class TutorController {
                         select: 'name email phone' // Populate user details
                     }
                 });
-    
+
             if (!tutoringRecords || tutoringRecords.length === 0) {
                 return res.status(404).json({ message: 'No tutors available.' });
             }
-    
+
             const tutors = [];
             for (const tutoring of tutoringRecords) {
                 // Check if the required fields exist
@@ -519,9 +570,9 @@ class TutorController {
                         profilePicture: tutoring.tutorId.profilePicture || null,
                         subjects: tutoring.tutorId.subjects
                             ? tutoring.tutorId.subjects.map(subject => ({
-                                  name: subject.name,
-                                  levels: subject.levels
-                              }))
+                                name: subject.name,
+                                levels: subject.levels
+                            }))
                             : [],
                         premiumEssays: tutoring.tutorId.premiumEssays || false,
                         hasDBS: tutoring.tutorId.hasDBS || false,
@@ -538,11 +589,11 @@ class TutorController {
                     );
                 }
             }
-    
+
             if (tutors.length === 0) {
                 return res.status(404).json({ message: 'No valid tutors found.' });
             }
-    
+
             return res.status(200).json({
                 message: 'Tutors retrieved successfully.',
                 tutors
@@ -552,8 +603,8 @@ class TutorController {
             return res.status(500).json({ message: 'Internal server error', error: error.message });
         }
     }
-    
-    
+
+
 
     async updateTutoringProfile(req, res) {
         try {

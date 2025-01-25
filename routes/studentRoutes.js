@@ -41,4 +41,8 @@ router.get('/getUpcomingTutoringSessions', auth, StudentController.getUpcomingTu
 
 router.get('/getCompletedTutoringSessions', auth, StudentController.getCompletedTutoringSessions)
 
+router.get('/getAllContacts', auth, StudentController.getAllContacts)
+
+router.get('/getMessagesForStudent', auth, StudentController.getMessagesForStudent)
+
 module.exports = router
