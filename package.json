@@ -26,6 +26,7 @@
     "openai": "^4.78.1",
     "pdf-parse": "^1.1.1",
     "sequelize": "^6.37.5",
+    "socket.io": "^4.8.1",
     "stripe": "^17.5.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
