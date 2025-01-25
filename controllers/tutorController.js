@@ -6,16 +6,13 @@ const Essay = require('../models/essayModel');
 const Rating = require('../models/ratingModel');
 const User = require('../models/userModel');
 const TutoringSession = require('../models/tutoringSessionModel');
+const Message = require('../models/messageModel');
 
 class TutorController {
     async requestForTutor(req, res) {
         try {
             const {
-
-
-         
-                                subjects,
-           
+                subjects,
                 rightToWork,
                 eligibility,
                 hasDBS,
@@ -115,30 +112,29 @@ class TutorController {
 
             let tutor = await Tutor.findOne({ userId });
 
-                if (!eligibility) {
-                    return res.status(400).json({
-                        message: 'Eligibility is required.',
-                    });
-                }
+            if (!eligibility) {
+                return res.status(400).json({
+                    message: 'Eligibility is required.',
+                });
+            }
 
-                tutor = await Tutor.create({
-                    userId,
-                    subjects: parsedSubjects,
-                    hasDBS: hasDBS || false,
-                    dbsDetails: dbsDetails,
-             
-                    rightToWork: rightToWork || false,
-                    eligibility: eligibility || null,
-                    documents: documentUrls,
-                    appliedForDBS: appliedForDBS,
-                    dbsApplicationDetails: dbsAppDetails,
-                });
-                user.onboardingCompleted = true;
-                user.save();
-                return res.status(201).json({
-                    message: 'Tutor request submitted successfully!',
-                    tutor,
-                });
+            tutor = await Tutor.create({
+                userId,
+                subjects: parsedSubjects,
+                hasDBS: hasDBS || false,
+                dbsDetails: dbsDetails,
+                rightToWork: rightToWork || false,
+                eligibility: eligibility || null,
+                documents: documentUrls,
+                appliedForDBS: appliedForDBS,
+                dbsApplicationDetails: dbsAppDetails,
+            });
+            user.onboardingCompleted = true;
+            user.save();
+            return res.status(201).json({
+                message: 'Tutor request submitted successfully!',
+                tutor,
+            });
         } catch (error) {
             console.error('Error submitting tutor request:', error);
             return res.status(500).json({
@@ -399,6 +395,14 @@ class TutorController {
                     message: 'Essay not found',
                 });
             }
+
+            const messageData = {
+                sender: tutor._id,
+                recipient: essay.studentID,
+                content: "Hey there! I will be checking your essay."
+            };
+
+            io.emit('sendMessage', messageData);
 
             return res.status(200).json({
                 message: 'Essay retrieved successfully!',

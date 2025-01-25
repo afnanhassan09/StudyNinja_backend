@@ -9,6 +9,7 @@ const pdfParse = require('pdf-parse');
 const { createInstantMeeting } = require('../utils/createZoomMeeting');
 const schedule = require('node-schedule');
 const Rating = require('../models/ratingModel');
+const Message = require('../models/messageModel');
 
 
 
@@ -85,6 +86,58 @@ class StudentController {
             });
         }
     }
+
+    async getMessages(req, res) {
+        try {
+            const tutorID = req.params.tutorID;
+            const student = await Student.findOne({ userId: req.user._id });
+
+            if (!student) {
+                return res.status(404).json({ error: 'Student not found' });
+            }
+
+
+            const messages = await Message.find({
+                $or: [
+                    { sender: student._id, recipient: tutorID },
+                    { sender: tutorID, recipient: student._id },
+                ],
+            }).sort({ timestamp: 1 });
+
+            return res.status(200).json({ messages });
+        } catch (error) {
+            console.error('Error fetching messages:', error);
+            return res.status(500).json({ error: 'Internal server error' });
+        }
+    }
+
+    async getAllContacts(req, res) {
+        try {
+            const student = await Student.findOne({ userId: req.user._id }); 
+
+            if (!student) {
+                return res.status(404).json({ error: 'Student not found' });
+            }
+
+            const tutorIds = await Message.distinct('sender', {
+                recipient: student._id,
+            });
+
+            const additionalTutorIds = await Message.distinct('recipient', {
+                sender: student._id,
+            });
+
+            const uniqueTutorIds = Array.from(new Set([...tutorIds, ...additionalTutorIds]));
+
+            const tutors = await Tutor.find({ _id: { $in: uniqueTutorIds } });
+
+            return res.status(200).json({ tutors });
+        } catch (error) {
+            console.error('Error fetching tutors:', error);
+            return res.status(500).json({ error: 'Internal server error' });
+        }
+    }
+
 
     async uploadEssay(req, res) {
         try {
@@ -175,8 +228,8 @@ class StudentController {
             });
         }
     }
-    
-    
+
+
 
     async getProfile(req, res) {
         console.log('Fetching student profile');
@@ -358,7 +411,7 @@ class StudentController {
             }
 
             // Get all submitted essays for the student
-            const submittedEssays = await Essay.find({ studentID: student._id});
+            const submittedEssays = await Essay.find({ studentID: student._id });
             const essaysSubmitted = submittedEssays.length;
             console.log(essaysSubmitted);
 
@@ -487,7 +540,7 @@ class StudentController {
                 return res.status(403).json({ message: 'You are not authorized to view this essay.' });
             }
             return res.status(200).json({ essay });
-        
+
         }
 
         catch (error) {
