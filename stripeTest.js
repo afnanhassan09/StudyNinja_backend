@@ -1,4 +1,4 @@
-const stripe = require('stripe')('sk_test_51N8wSIIgVdZ3fy8KJMneUWY0XjnSBwWrZw8sMvbqQXWbuRgIdRbwX5V5cFM4kkyQi3NQr60Z7EycsG8lYXq3JqT300wniHQrdx'); // Replace with your actual secret key
+const stripe = require('stripe')(''); // Replace with your actual secret key
 
 (async () => {
     try {
