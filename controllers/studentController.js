@@ -25,6 +25,7 @@ class StudentController {
         console.log('Updating student profile');
         try {
             const files = req.files;
+            const user = await User.findOne({ _id: req.user._id });
             const { major, university, bio, dateOfBirth } = req.body; // Extract profile fields
 
             let profilePictureUrl = null;
@@ -69,7 +70,8 @@ class StudentController {
                     profilePicture: profilePictureUrl,
                     dateOfBirth,
                 });
-
+                user.onboardingCompleted = true;
+                user.save();
                 return res.status(200).json({
                     message: 'Student profile created successfully!',
                     newStudent

@@ -56,6 +56,10 @@ const UserSchema = new mongoose.Schema(
             type: Date,
             default: null,
         },
+        onboardingCompleted: {
+            type: Boolean,
+            default: false,
+        }
     },
     {
         timestamps: true, // Automatically add createdAt and updatedAt fields

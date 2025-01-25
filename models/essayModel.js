@@ -87,6 +87,9 @@ const EssaySchema = mongoose.Schema({
     plus_18: {
         type: Boolean,
         default: false
+    },
+    tutor_payment: {
+        type: Number,
     }
     
 }, {

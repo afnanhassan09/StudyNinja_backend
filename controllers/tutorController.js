@@ -32,7 +32,7 @@ class TutorController {
                     message: 'Missing required fields: yearsOfExperience, university, or subjects.',
                 });
             }
-
+            const user = await User.findOne({ _id: userId });
             let parsedSubjects;
             try {
                 parsedSubjects = JSON.parse(subjects);
@@ -154,7 +154,8 @@ class TutorController {
                     dbsApplicationDetails: dbsAppDetails,
                     universityDocuments: universityDocumentUrls,
                 });
-
+                user.onboardingCompleted = true;
+                user.save();
                 return res.status(201).json({
                     message: 'Tutor request submitted successfully!',
                     tutor,
