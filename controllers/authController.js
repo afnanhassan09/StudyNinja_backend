@@ -273,6 +273,7 @@ class AuthController {
                     role: user.role,
                     phone: user.phone,
                     emailVerified: user.emailVerified,
+                    onboardingCompleted: user.onboardingCompleted
                 },
             });
         } catch (error) {

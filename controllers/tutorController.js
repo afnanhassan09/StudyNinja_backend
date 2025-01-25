@@ -11,11 +11,11 @@ class TutorController {
     async requestForTutor(req, res) {
         try {
             const {
-                yearsOfExperience,
-                university,
-                motivation,
-                subjects,
-                StudyLevel,
+
+
+         
+                                subjects,
+           
                 rightToWork,
                 eligibility,
                 hasDBS,
@@ -27,7 +27,7 @@ class TutorController {
             const files = req.files;
             const userId = req.user._id;
 
-            if (!yearsOfExperience || !university || !subjects) {
+            if (!subjects) {
                 return res.status(400).json({
                     message: 'Missing required fields: yearsOfExperience, university, or subjects.',
                 });
@@ -115,22 +115,6 @@ class TutorController {
 
             let tutor = await Tutor.findOne({ userId });
 
-            if (tutor) {
-                tutor.yearsOfExperience = yearsOfExperience || tutor.yearsOfExperience;
-                tutor.university = university || tutor.university;
-                tutor.motivation = motivation || tutor.motivation;
-                tutor.profilePicture = profilePictureUrl || tutor.profilePicture;
-                tutor.subjects = parsedSubjects || tutor.subjects;
-                tutor.StudyLevel = StudyLevel || tutor.StudyLevel;
-                tutor.universityDocuments = universityDocumentUrls.length > 0 ? universityDocumentUrls : tutor.universityDocuments;
-
-                await tutor.save();
-
-                return res.status(200).json({
-                    message: 'Tutor profile updated successfully!',
-                    tutor,
-                });
-            } else {
                 if (!eligibility) {
                     return res.status(400).json({
                         message: 'Eligibility is required.',
@@ -139,20 +123,15 @@ class TutorController {
 
                 tutor = await Tutor.create({
                     userId,
-                    yearsOfExperience,
-                    university,
-                    motivation: motivation || '',
-                    profilePicture: profilePictureUrl || null,
                     subjects: parsedSubjects,
                     hasDBS: hasDBS || false,
                     dbsDetails: dbsDetails,
-                    StudyLevel: StudyLevel || 'GCSE',
+             
                     rightToWork: rightToWork || false,
                     eligibility: eligibility || null,
                     documents: documentUrls,
                     appliedForDBS: appliedForDBS,
                     dbsApplicationDetails: dbsAppDetails,
-                    universityDocuments: universityDocumentUrls,
                 });
                 user.onboardingCompleted = true;
                 user.save();
@@ -160,7 +139,6 @@ class TutorController {
                     message: 'Tutor request submitted successfully!',
                     tutor,
                 });
-            }
         } catch (error) {
             console.error('Error submitting tutor request:', error);
             return res.status(500).json({

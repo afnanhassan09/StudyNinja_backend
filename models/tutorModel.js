@@ -10,11 +10,11 @@ const Tutor = new mongoose.Schema(
         },
         yearsOfExperience: {
             type: Number,
-            required: true,
+            default: 0,
         },
         university: {
             type: String,
-            required: true,
+            default: '',
         },
         motivation: {
             type: String,

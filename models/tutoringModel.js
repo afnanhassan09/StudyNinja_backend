@@ -25,7 +25,7 @@ const TutoringSchema = new mongoose.Schema({
     },
     hourlyRate: {
         type: Number,
-        required: true
+        default: 0
     },
     subject: {
         type: String,
