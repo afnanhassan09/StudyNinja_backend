@@ -24,7 +24,7 @@ class TutorController {
                 appliedForDBS,
                 dbsApplicationDetails,
             } = req.body;
-
+            console.log(dbsApplicationDetails)
             const files = req.files;
             const userId = req.user._id;
 
@@ -274,7 +274,7 @@ class TutorController {
                         ...tutor._doc, // Spread tutor data
                         phone: tutor.phone,
                         name: user.name,
-                        name: user.email,
+                        email: user.email,
                     }
                 });
             } else {
@@ -451,7 +451,7 @@ class TutorController {
                     hourlyRate: tutor.hourlyRate,
                     availability: tutor.availability,
                     description: tutor.description,
-                    duration: tutor.duration
+                    status: tutor.status
                 }))
             });
         } catch (error) {
@@ -463,7 +463,7 @@ class TutorController {
     async updateTutoringProfile(req, res) {
         try {
             console.log("Updating tutoring profile...");
-            const { subject, hourlyRate, availability, description, duration } = req.body;
+            const { subject, hourlyRate, availability, description, status } = req.body;
 
             const tutor = await Tutor.findOne({ userId: req.user._id });
             const existingProfile = await Tutoring.findOne({ tutorId: tutor._id });
@@ -473,7 +473,7 @@ class TutorController {
                 existingProfile.hourlyRate = hourlyRate || existingProfile.hourlyRate;
                 existingProfile.availability = availability || existingProfile.availability;
                 existingProfile.description = description || existingProfile.description;
-                existingProfile.duration = duration || existingProfile.duration;
+                existingProfile.status = status || existingProfile.status;
 
                 await existingProfile.save();
 
@@ -497,7 +497,7 @@ class TutorController {
                         sunday: []
                     },
                     description: description || '',
-                    duration: duration || 0
+                    status: status || true
                 });
 
                 await newProfile.save();

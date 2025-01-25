@@ -35,10 +35,6 @@ const TutoringSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
-    duration: {
-        type: Number,
-        required: true
-    },
     status: {
         type: String,
         enum: ['Available', 'Unavailable'],
