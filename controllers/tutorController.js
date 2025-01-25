@@ -490,33 +490,70 @@ class TutorController {
 
     async getTutorProfilesforTutoring(req, res) {
         try {
-            const tutors = await Tutoring.find({ status: 'Available' }).populate('tutorId', 'fullNameDBS university yearsOfExperience StudyLevel profilePicture');
-
-            if (!tutors || tutors.length === 0) {
+            // Fetch tutors where status is 'Available' and populate related data
+            const tutoringRecords = await Tutoring.find({ status: 'Available' })
+                .populate({
+                    path: 'tutorId',
+                    populate: {
+                        path: 'userId',
+                        select: 'name email phone' // Populate user details
+                    }
+                });
+    
+            if (!tutoringRecords || tutoringRecords.length === 0) {
                 return res.status(404).json({ message: 'No tutors available.' });
             }
-
+    
+            const tutors = [];
+            for (const tutoring of tutoringRecords) {
+                // Check if the required fields exist
+                if (tutoring.tutorId && tutoring.tutorId.userId) {
+                    tutors.push({
+                        _id: tutoring.tutorId._id,
+                        fullName: tutoring.tutorId.userId.name || 'N/A', // Fetch user name
+                        email: tutoring.tutorId.userId.email || 'N/A',
+                        phone: tutoring.tutorId.userId.phone || 'N/A',
+                        university: tutoring.tutorId.university || 'N/A',
+                        experience: tutoring.tutorId.yearsOfExperience || 0,
+                        studyLevel: tutoring.tutorId.StudyLevel || 'N/A',
+                        profilePicture: tutoring.tutorId.profilePicture || null,
+                        subjects: tutoring.tutorId.subjects
+                            ? tutoring.tutorId.subjects.map(subject => ({
+                                  name: subject.name,
+                                  levels: subject.levels
+                              }))
+                            : [],
+                        premiumEssays: tutoring.tutorId.premiumEssays || false,
+                        hasDBS: tutoring.tutorId.hasDBS || false,
+                        motivation: tutoring.tutorId.motivation || '',
+                        approved: tutoring.tutorId.approved || false,
+                        hourlyRate: tutoring.hourlyRate || 0, // Fetch hourly rate
+                        availability: tutoring.availability || {}, // Weekly availability
+                        subject: tutoring.subject || 'N/A', // Main subject
+                        description: tutoring.description || '' // Tutor description
+                    });
+                } else {
+                    console.warn(
+                        `Skipping tutoring record with missing tutorId or userId: ${tutoring._id}`
+                    );
+                }
+            }
+    
+            if (tutors.length === 0) {
+                return res.status(404).json({ message: 'No valid tutors found.' });
+            }
+    
             return res.status(200).json({
                 message: 'Tutors retrieved successfully.',
-                tutors: tutors.map(tutor => ({
-                    _id: tutor.tutorId,
-                    fullName: tutor.tutorId.fullNameDBS,
-                    university: tutor.tutorId.university,
-                    experience: tutor.tutorId.yearsOfExperience,
-                    studyLevel: tutor.tutorId.StudyLevel,
-                    profilePicture: tutor.tutorId.profilePicture,
-                    subject: tutor.subject,
-                    hourlyRate: tutor.hourlyRate,
-                    availability: tutor.availability,
-                    description: tutor.description,
-                    status: tutor.status
-                }))
+                tutors
             });
         } catch (error) {
             console.error(error);
             return res.status(500).json({ message: 'Internal server error', error: error.message });
         }
     }
+    
+    
 
     async updateTutoringProfile(req, res) {
         try {

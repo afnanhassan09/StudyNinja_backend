@@ -9,6 +9,7 @@ const pdfParse = require('pdf-parse');
 const { createInstantMeeting } = require('../utils/createZoomMeeting');
 const schedule = require('node-schedule');
 const Rating = require('../models/ratingModel');
+const User = require('../models/userModel');
 const Message = require('../models/messageModel');
 
 
@@ -332,18 +333,18 @@ class StudentController {
             console.log('Creating tutoring session, req.body:', req.body);
             const student = await Student.findOne({ userId: req.user._id });
             if (!student) {
-                return res.status(404).json({ message: 'Student not found.' });
+                return res.status(401).json({ message: 'Student not found.' });
             }
 
             const { tutorId, purpose, startTime, endTime } = req.body;
 
             if (!tutorId || !startTime || !endTime) {
-                return res.status(400).json({ message: 'Missing required fields: tutorId, startTime, and endTime.' });
+                return res.status(401).json({ message: 'Missing required fields: tutorId, startTime, and endTime.' });
             }
 
-            const tutor = await Tutor.findOne({ _id: tutorId._id });
+            const tutor = await Tutor.findOne({ _id: tutorId });
             if (!tutor) {
-                return res.status(404).json({ message: 'Tutor not found.' });
+                return res.status(401).json({ message: 'Tutor not found.' });
             }
 
             const startTimeObj = new Date(startTime);
@@ -360,7 +361,7 @@ class StudentController {
             const existingSession = await Tutoring.findOne({ tutorId: tutor._id });
             const dayAvailability = existingSession.availability[dayOfWeek];
             if (!dayAvailability.includes(timeRange)) {
-                return res.status(400).json({ message: `Time slot ${timeRange} is not available on ${dayOfWeek}.` });
+                return res.status(401).json({ message: `Time slot ${timeRange} is not available on ${dayOfWeek}.` });
             }
             // Remove the time slot
             existingSession.availability[dayOfWeek] = existingSession.availability[dayOfWeek].filter(slot => slot !== timeRange);
