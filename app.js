@@ -15,6 +15,14 @@ dbConnection();
 
 app.use(express.json());
 
+
+function logRequest(req, res, next) {
+    console.log(`[${new Date().toLocaleString()}] ${req.method} ${req.url}`);
+    next();
+}
+
+app.use(logRequest);
+
 app.use(cors({
     origin: 'http://localhost:5173', 
     credentials: true,             

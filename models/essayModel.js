@@ -23,6 +23,10 @@ const EssaySchema = mongoose.Schema({
         type: Number,
         required: true
     },
+    markingScheme: {
+        type: String,
+        default: null
+    },
     studentRequest: {
         type: String,
         enum: ['Feedback Only', 'Feedback and Model Answer'],

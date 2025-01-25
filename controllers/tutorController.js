@@ -245,7 +245,7 @@ class TutorController {
             essay.feedback = feedback;
             essay.score = score;
             essay.status = 'Completed';
-
+            console.log(req.files)
             if (essay.studentRequest === 'Feedback and Model Answer') {
                 if (!req.files || !req.files.modelAnswerFile) {
                     return res.status(400).json({
@@ -253,7 +253,7 @@ class TutorController {
                     });
                 }
 
-                const file = req.files.modelAnswerFile;
+                const file = req.files.modelAnswerFile[0];
                 const modelAnswerURL = await uploadFile(file.buffer, file.originalname, file.mimetype);
                 essay.modelURL = modelAnswerURL;
             }
@@ -369,7 +369,7 @@ class TutorController {
             return res.status(200).json({
                 message: 'Tutors retrieved successfully.',
                 tutors: tutors.map(tutor => ({
-                    _id: tutor._id,
+                    _id: tutor.tutorId,
                     fullName: tutor.tutorId.fullNameDBS,
                     university: tutor.tutorId.university,
                     experience: tutor.tutorId.yearsOfExperience,
@@ -393,8 +393,8 @@ class TutorController {
             console.log("Updating tutoring profile...");
             const { subject, hourlyRate, availability, description, duration } = req.body;
 
-            const existingProfile = await Tutoring.findOne({ tutorId: req.user._id });
             const tutor = await Tutor.findOne({ userId: req.user._id });
+            const existingProfile = await Tutoring.findOne({ tutorId: tutor._id });
             if (existingProfile) {
                 // Only update fields if they are provided in the request
                 existingProfile.subject = subject || existingProfile.subject;
@@ -591,6 +591,8 @@ class TutorController {
             return res.status(500).json({ message: 'Internal server error', error: error.message });
         }
     }
+
+    
 
 
 }

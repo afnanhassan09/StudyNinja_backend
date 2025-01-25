@@ -1,15 +1,19 @@
 const express = require('express');
 
 const router = express.Router();
-
+const StudentController = require('../controllers/studentController')
 const multer = require('multer');
 const upload = multer();
 const auth = require('../middleware/auth');
-const StudentController = require('../controllers/studentController')
+
+router.post('/uploadEssay', auth, upload.fields([
+    { name: 'file', maxCount: 1 },
+    { name: 'markingScheme', maxCount: 1 }
+]), StudentController.uploadEssay)
+
 
 router.post('/updateProfile', auth, upload.array('files'), StudentController.updateProfile)
 
-router.post('/uploadEssay', auth, upload.array('files'), StudentController.uploadEssay)
 
 router.get('/profile', auth, upload.array('files'), StudentController.getProfile)
 
@@ -28,5 +32,13 @@ router.get('/getDashboard', auth, StudentController.getStudentDashboard)
 router.get('/getPendingRating', auth, StudentController.getPendingRating)
 
 router.post('/giveRating', auth, StudentController.giveRating)
+
+router.get("/essay/:id", auth, StudentController.getEssaybyID)
+
+router.get('/getTutoringSessions', auth, StudentController.getTutoringSessions)
+
+router.get('/getUpcomingTutoringSessions', auth, StudentController.getUpcomingTutoringSessions)
+
+router.get('/getCompletedTutoringSessions', auth, StudentController.getCompletedTutoringSessions)
 
 module.exports = router

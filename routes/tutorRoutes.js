@@ -16,7 +16,7 @@ router.get('/getAvailableEssays', auth, TutorController.getTutorView);
 
 router.get('/getProfile', auth, TutorController.getTutorProfile)
 
-router.post('/markEssay', upload.array('modelAnswerFile'), auth, TutorController.markEssay);
+router.post('/markEssay', upload.fields([{ name: 'modelAnswerFile', maxCount: 1 }]), auth, TutorController.markEssay);
 
 router.post('/getEssay', auth, TutorController.getEssay);
 
@@ -37,6 +37,7 @@ router.get('/getPendingTutoringSessions', auth, TutorController.getPendingTutori
 router.get('/getInProgressTutoringSessions', auth, TutorController.getInProgressTutoringSessions);
 
 router.get('/getCompletedTutoringSessions', auth, TutorController.getCompletedTutoringSessions);
+
 
 
 module.exports = router;

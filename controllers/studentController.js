@@ -9,7 +9,8 @@ const pdfParse = require('pdf-parse');
 const { createInstantMeeting } = require('../utils/createZoomMeeting');
 const schedule = require('node-schedule');
 const Rating = require('../models/ratingModel');
-// const pdfParse = require('pdf-parse');
+
+
 
 require('dotenv').config(); // Load environment variables from .env
 
@@ -51,7 +52,7 @@ class StudentController {
                 existingStudent.university = university || existingStudent.university;
                 existingStudent.bio = bio || existingStudent.bio;
                 existingStudent.profilePicture = profilePictureUrl || existingStudent.profilePicture;
-
+                existingStudent.dateOfBirth = dateOfBirth || existingStudent.dateOfBirth;
                 const updatedStudent = await existingStudent.save();
 
                 return res.status(200).json({
@@ -111,14 +112,17 @@ class StudentController {
                 });
             }
 
-            const file = files[0];
+            const file = files.file[0];
+            const markingScheme = files.markingScheme ? files.markingScheme[0] : null;
 
-            // Upload the essay file to AWS
-            const uploadedFile = await uploadFile(file.buffer, file.originalname, file.mimetype);
-            if (!uploadedFile) {
-                return res.status(500).json({ message: 'Error uploading essay file to AWS.' });
-            }
+            let uploadedFile = null
+            let uploadedMarkingScheme = null;
 
+
+            await Promise.all([
+                file ? uploadFile(file.buffer, file.originalname, file.mimetype).then(url => uploadedFile = url) : null,
+                markingScheme ? uploadFile(markingScheme.buffer, markingScheme.originalname, markingScheme.mimetype).then(url => uploadedMarkingScheme = url) : null,
+            ]);
             // Extract text content from the PDF file
             const fileContent = await pdfParse(file.buffer).then((data) => data.text);
 
@@ -151,6 +155,7 @@ class StudentController {
                 comments: comments || '',
                 wordCount,
                 price,
+                markingScheme: uploadedMarkingScheme,
                 platformCommission,
                 fileUrl: uploadedFile, // Set the AWS file URL
                 plus_18: isPlus18,
@@ -168,6 +173,7 @@ class StudentController {
             });
         }
     }
+    
 
 
     async getProfile(req, res) {
@@ -197,7 +203,8 @@ class StudentController {
 
     async getAllEssays(req, res) {
         try {
-            const essays = await Essay.find({ studentID: req.user._id })
+            const student = await Student.findOne({ userId: req.user._id });
+            const essays = await Essay.find({ studentID: student._id })
 
             if (essays.length === 0) {
                 return res.status(404).json({ message: 'No essays found for the given student.' });
@@ -212,8 +219,9 @@ class StudentController {
 
     async getPendingEssays(req, res) {
         try {
+            const student = await Student.findOne({ userId: req.user._id });
             const essays = await Essay.find({
-                studentID: req.user._id, // Filter by student ID
+                studentID: student._id, // Filter by student ID
                 status: "Pending",
             })
 
@@ -266,6 +274,7 @@ class StudentController {
 
     async createTutoringSession(req, res) {
         try {
+            console.log('Creating tutoring session, req.body:', req.body);
             const student = await Student.findOne({ userId: req.user._id });
             if (!student) {
                 return res.status(404).json({ message: 'Student not found.' });
@@ -277,7 +286,7 @@ class StudentController {
                 return res.status(400).json({ message: 'Missing required fields: tutorId, startTime, and endTime.' });
             }
 
-            const tutor = await Tutor.findOne({ _id: tutorId });
+            const tutor = await Tutor.findOne({ _id: tutorId._id });
             if (!tutor) {
                 return res.status(404).json({ message: 'Tutor not found.' });
             }
@@ -287,7 +296,7 @@ class StudentController {
 
             // Determine the day of the week (e.g., 'monday')
             const dayOfWeek = startTimeObj.toLocaleString('en-us', { weekday: 'long' }).toLowerCase();
-            console.log(dayOfWeek);
+            console.log("Day of Week", dayOfWeek);
             // Format the time range as "HH:mm-HH:mm"
             const timeRange = `${startTimeObj.toISOString().slice(11, 16)}-${endTimeObj.toISOString().slice(11, 16)}`;
             console.log(timeRange);
@@ -347,8 +356,9 @@ class StudentController {
             }
 
             // Get all submitted essays for the student
-            const submittedEssays = await Essay.find({ student: student._id, status: 'submitted' });
+            const submittedEssays = await Essay.find({ studentID: student._id});
             const essaysSubmitted = submittedEssays.length;
+            console.log(essaysSubmitted);
 
             // Get all interviews completed by the student
             const completedInterviews = await TutoringSession.find({
@@ -460,6 +470,101 @@ class StudentController {
             return res.status(500).json({ message: 'Internal server error', error: error.message });
         }
     }
+
+    async getEssaybyID(req, res) {
+        try {
+            const student = await Student.findOne({ userId: req.user._id });
+            if (!student) {
+                return res.status(404).json({ message: 'Student not found' });
+            }
+            const essay = await Essay.findById(req.params.id);
+            if (!essay) {
+                return res.status(404).json({ message: 'Essay not found' });
+            }
+            if (essay.studentID.toString() !== student._id.toString()) {
+                return res.status(403).json({ message: 'You are not authorized to view this essay.' });
+            }
+            return res.status(200).json({ essay });
+        
+        }
+
+        catch (error) {
+            console.error(error);
+            return res.status(500).json({ message: 'Internal server error', error: error.message });
+        }
+
+
+    }
+
+    async getTutoringSessions(req, res) {
+        try {
+            // Check if user is authenticated
+            if (!req.user || !req.user._id) {
+                return res.status(401).json({ message: 'Unauthorized access.' });
+            }
+
+            const student = await Student.findOne({ userId: req.user._id });
+            if (!student) {
+                return res.status(404).json({ message: 'Student not found.' });
+            }
+
+            // Check if student has any tutoring sessions
+            const tutoringSessions = await TutoringSession.find({ studentId: student._id });
+            if (!tutoringSessions || tutoringSessions.length === 0) {
+                return res.status(404).json({ message: 'No tutoring sessions found.' });
+            }
+
+            return res.status(200).json({ tutoringSessions });
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ message: 'An error occurred while fetching tutoring sessions.' });
+        }
+    }
+
+    async getCompletedTutoringSessions(req, res) {
+        try {
+            // Check if user is authenticated
+            if (!req.user || !req.user._id) {
+                return res.status(401).json({ message: 'Unauthorized access.' });
+            }
+
+            const student = await Student.findOne({ userId: req.user._id });
+            if (!student) {
+                return res.status(404).json({ message: 'Student not found.' });
+            }
+
+            // Check if student has any completed tutoring sessions
+            const tutoringSessions = await TutoringSession.find({ studentId: student._id, endTime: { $lte: new Date() } });
+            if (!tutoringSessions || tutoringSessions.length === 0) {
+                return res.status(404).json({ message: 'No completed tutoring sessions found.' });
+            }
+
+            return res.status(200).json({ tutoringSessions });
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ message: 'An error occurred while fetching tutoring sessions.' });
+        }
+    }
+
+    async getUpcomingTutoringSessions(req, res) {
+        try {
+            const student = await Student.findOne({ userId: req.user._id });
+            if (!student) {
+                return res.status(404).json({ message: 'Student not found.' });
+            }
+
+            const tutoringSessions = await TutoringSession.find({ studentId: student._id, startTime: { $gte: new Date() } });
+            if (!tutoringSessions || tutoringSessions.length === 0) {
+                return res.status(404).json({ message: 'No upcoming tutoring sessions found.' });
+            }
+
+            return res.status(200).json({ tutoringSessions });
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ message: 'An error occurred while fetching tutoring sessions.' });
+        }
+    }
+
 }
 
 module.exports = new StudentController();
