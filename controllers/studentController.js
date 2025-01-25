@@ -174,6 +174,7 @@ class StudentController {
         }
     }
     
+    
 
     async getProfile(req, res) {
         console.log('Fetching student profile');

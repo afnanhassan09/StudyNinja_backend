@@ -221,8 +221,6 @@ class TutorController {
         }
     }
 
-
-
     async updateTutorLevel(req, res) {
         try {
             const { userId, StudyLevel } = req.body;
@@ -449,7 +447,7 @@ class TutorController {
             })
 
             if (essays.length === 0) {
-                return res.status(404).json({ message: 'No in-progress essays found.' });
+                return res.status(200).json({ message: 'No in-progress essays found.' });
             }
 
             res.status(200).json({ essays });
@@ -636,7 +634,7 @@ class TutorController {
         try {
             const tutor = await Tutor.findOne({ userId: req.user._id });
             if (!tutor) {
-                return res.status(404).json({ message: 'Tutor profile not found.' });
+                return res.status(200).json({ message: 'Tutor profile not found.' });
             }
             console.log(tutor._id);
             const currentDateTime = new Date();
@@ -647,7 +645,7 @@ class TutorController {
             });
 
             if (pendingSessions.length === 0) {
-                return res.status(404).json({ message: 'No pending tutoring sessions found.' });
+                return res.status(200).json({ message: 'No pending tutoring sessions found.' });
             }
 
             return res.status(200).json({
@@ -675,7 +673,7 @@ class TutorController {
             });
 
             if (completedSessions.length === 0) {
-                return res.status(404).json({ message: 'No completed tutoring sessions found.' });
+                return res.status(200).json({ message: 'No completed tutoring sessions found.' });
             }
 
             return res.status(200).json({
@@ -704,7 +702,7 @@ class TutorController {
             });
 
             if (inProgressSessions.length === 0) {
-                return res.status(404).json({ message: 'No in-progress tutoring sessions found.' });
+                return res.status(200).json({ message: 'No in-progress tutoring sessions found.' });
             }
 
             return res.status(200).json({
