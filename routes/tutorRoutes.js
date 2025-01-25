@@ -28,6 +28,8 @@ router.post('/getEssay', auth, TutorController.getEssay);
 
 router.get('/getInProgressEssays', auth, TutorController.getInProgressEssays);
 
+router.get('/getAllEssays', auth, TutorController.getAllEssays);
+
 router.get('/getCompletedEssays', auth, TutorController.getCompletedEssays);
 
 router.get('/getTutorProfilesforTutoring', TutorController.getTutorProfilesforTutoring);

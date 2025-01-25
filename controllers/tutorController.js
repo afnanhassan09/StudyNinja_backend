@@ -437,12 +437,36 @@ class TutorController {
         try {
             const tutor = await Tutor.findOne({ userId: req.user._id });
             if (!tutor) {
-                return res.status(404).json({
+                return res.status(200).json({
                     message: 'Tutor profile not found',
                 });
             }
+            console.log(tutor._id)
             const essays = await Essay.find({
                 status: 'In Progress',
+                markedBy: tutor._id
+            })
+
+            if (essays.length === 0) {
+                return res.status(200).json({ message: 'No in-progress essays found.' });
+            }
+
+            res.status(200).json({ essays });
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ message: 'An error occurred while fetching essays.' });
+        }
+    }
+    async getAllEssays(req, res) {
+        try {
+            const tutor = await Tutor.findOne({ userId: req.user._id });
+            if (!tutor) {
+                return res.status(200).json({
+                    message: 'Tutor profile not found',
+                });
+            }
+            console.log(tutor._id)
+            const essays = await Essay.find({
                 markedBy: tutor._id
             })
 
@@ -619,7 +643,7 @@ class TutorController {
                 essaysReviewed,
                 interviewsConducted,
                 rating: avgRating,
-                earnings: `$${earnings.toFixed(2)}`
+                earnings: `£${earnings.toFixed(2)}`
             };
 
             // Send the response
