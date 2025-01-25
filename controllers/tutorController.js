@@ -16,7 +16,6 @@ class TutorController {
                 motivation,
                 subjects,
                 StudyLevel,
-                certifications,
                 rightToWork,
                 eligibility,
                 hasDBS,
@@ -109,9 +108,9 @@ class TutorController {
                         message: 'Full name, phone, and email are required when appliedForDBS is true.',
                     });
                 }
-                dbsDetails.fullName = dbsApplicationDetails.fullName;
-                dbsDetails.phone = dbsApplicationDetails.phone;
-                dbsDetails.email = dbsApplicationDetails.email;
+                dbsAppDetails.fullName = dbsApplicationDetails.fullName;
+                dbsAppDetails.phone = dbsApplicationDetails.phone;
+                dbsAppDetails.email = dbsApplicationDetails.email;
             }
 
             let tutor = await Tutor.findOne({ userId });
@@ -169,6 +168,60 @@ class TutorController {
             });
         }
     }
+
+    async updateTutorProfile(req, res) {
+        try {
+            let tutor = await Tutor.findOne({ userId: req.user._id });
+            if (!tutor) {
+                return res.status(400).json({
+                    message: 'Tutor profile not found.',
+                });
+            }
+
+            // Update fields from the request body
+            tutor.university = req.body.university || tutor.university;
+            tutor.StudyLevel = req.body.StudyLevel || tutor.StudyLevel;
+            tutor.yearsOfExperience = req.body.yearsOfExperience || tutor.yearsOfExperience;
+            tutor.motivation = req.body.motivation || tutor.motivation;
+
+            // Parse subjects if provided as a string
+            if (req.body.subjects) {
+                try {
+                    const parsedSubjects = typeof req.body.subjects === "string"
+                        ? JSON.parse(req.body.subjects)
+                        : req.body.subjects;
+
+                    tutor.subjects = Array.isArray(parsedSubjects) ? parsedSubjects : tutor.subjects;
+                } catch (err) {
+                    return res.status(400).json({
+                        message: 'Invalid subjects format. It must be a valid JSON array.',
+                    });
+                }
+            }
+
+            // Handle profile picture update
+            if (req.files && req.files.profilePicture) {
+                const profilePictureFile = req.files.profilePicture[0];
+                tutor.profilePicture = await uploadFile(
+                    profilePictureFile.buffer,
+                    profilePictureFile.originalname,
+                    profilePictureFile.mimetype
+                );
+            }
+
+            await tutor.save();
+            return res.status(200).send({
+                tutor: tutor,
+            });
+        } catch (error) {
+            return res.status(401).send({
+                message: 'Tutor Updation failed',
+                error: error.message,
+            });
+        }
+    }
+
+
 
     async updateTutorLevel(req, res) {
         try {
