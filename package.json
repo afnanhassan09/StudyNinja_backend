@@ -32,6 +32,7 @@
     "stripe": "^17.5.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
-    "twilio": "^5.4.1"
+    "twilio": "^5.4.1",
+    "vercel": "^39.3.0"
   }
 }

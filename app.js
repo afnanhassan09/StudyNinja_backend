@@ -133,13 +133,7 @@ app.use('/api/student', studentRoutes);
 app.use('/api/notification', notificationRoutes);
 
 app.get('/', (req, res) => {
-    const code = req.query.code;
-    if (code) {
-        console.log('Authorization Code:', code);
-        res.send('Authorization code received. You can close this window.');
-    } else {
-        res.send('No authorization code found.');
-    }
+    res.send("Welcome to studyNinja")
 });
 
 // Make sure to export both app and server
