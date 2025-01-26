@@ -90,24 +90,70 @@ class StudentController {
 
     async getMessages(req, res) {
         try {
-            const tutorID = req.params.tutorID;
+            const tutorId = req.params.tutorId;
             const student = await Student.findOne({ userId: req.user._id });
 
             if (!student) {
                 return res.status(404).json({ error: 'Student not found' });
             }
 
-
             const messages = await Message.find({
                 $or: [
-                    { sender: student._id, recipient: tutorID },
-                    { sender: tutorID, recipient: student._id },
+                    { sender: student._id, recipient: tutorId },
+                    { sender: tutorId, recipient: student._id }
                 ],
-            }).sort({ timestamp: 1 });
+            })
+            .populate('sender')
+            .populate('recipient')
+            .sort({ timestamp: 1 })
+            .lean();
 
-            return res.status(200).json({ messages });
+            const formattedMessages = messages.map(msg => ({
+                _id: msg._id,
+                sender: msg.sender._id.toString() === student._id.toString() ? 'student' : 'tutor',
+                content: msg.content,
+                timestamp: msg.timestamp
+            }));
+
+            return res.status(200).json({ messages: formattedMessages });
         } catch (error) {
             console.error('Error fetching messages:', error);
+            return res.status(500).json({ error: 'Internal server error' });
+        }
+    }
+
+    async getAllChatContacts(req, res) {
+        try {
+            const student = await Student.findOne({ userId: req.user._id });
+            
+            if (!student) {
+                return res.status(404).json({ error: 'Student not found' });
+            }
+
+            const messagePartners = await Message.distinct('sender', {
+                recipient: student._id
+            });
+
+            const additionalPartners = await Message.distinct('recipient', {
+                sender: student._id
+            });
+
+            const uniqueTutorIds = Array.from(new Set([...messagePartners, ...additionalPartners]));
+            const tutorIds = uniqueTutorIds.filter(id => id.toString() !== student._id.toString());
+
+            const tutors = await Tutor.find({ _id: { $in: tutorIds } })
+                .populate('userId', 'name email profilePicture');
+
+            const formattedTutors = tutors.map(tutor => ({
+                _id: tutor._id,
+                name: tutor.userId.name,
+                email: tutor.userId.email,
+                profilePicture: tutor.profilePicture || tutor.userId.profilePicture
+            }));
+
+            return res.status(200).json({ tutors: formattedTutors });
+        } catch (error) {
+            console.error('Error fetching chat contacts:', error);
             return res.status(500).json({ error: 'Internal server error' });
         }
     }
