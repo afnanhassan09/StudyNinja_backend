@@ -182,7 +182,7 @@ class TutorController {
             for (let msg of messages) {
                 formattedMessages.push({
                     _id: msg._id,
-                    sender: msg.sender && msg.sender._id.toString() === tutorIdStr ? 'tutor' : 'student',
+                    sender: msg.senderModel ? msg.senderModel.toLowerCase() : "student",
                     content: msg.content,
                     timestamp: msg.timestamp
                 });
@@ -214,9 +214,18 @@ class TutorController {
 
             const uniqueStudentIds = Array.from(new Set([...studentIds, ...additionalStudentIds]));
 
-            const students = await Student.find({ _id: { $in: uniqueStudentIds } });
+            const students = await Student.find({ _id: { $in: uniqueStudentIds } })
+                .populate('userId', 'name _id profilePicture'); // Added profilePicture to populated fields
 
-            return res.status(200).json({ students });
+            // Format the response to include name, id, and profile picture
+            const formattedStudents = students.map(student => ({
+                _id: student._id,
+                name: student.userId?.name || 'Unknown',
+                userId: student.userId?._id,
+                profilePicture: student.profilePicture || null
+            }));
+
+            return res.status(200).json({ students: formattedStudents });
         } catch (error) {
             console.error('Error fetching students for tutor:', error);
             return res.status(500).json({ error: 'Internal server error' });
