@@ -12,6 +12,8 @@ const adminRoutes = require('./routes/adminRoutes');
 const studentRoutes = require('./routes/studentRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const Message = require('./models/messageModel');
+const cron = require('node-cron');
+const axios = require('axios');
 
 dbConnection();
 
@@ -134,6 +136,16 @@ app.use('/api/notification', notificationRoutes);
 
 app.get('/', (req, res) => {
     res.send("Welcome to studyNinja")
+});
+
+cron.schedule('*/10 * * * *', async () => {
+    try {
+        console.log('🔄 Making a GET request to keep the server alive...');
+        const response = await axios.get('https://studyninja-backend.onrender.com/');
+        console.log('✅ Server response:', response.status, response.statusText);
+    } catch (error) {
+        console.error('❌ Error making GET request:', error.message);
+    }
 });
 
 // Make sure to export both app and server
