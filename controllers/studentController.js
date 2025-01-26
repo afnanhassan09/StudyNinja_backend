@@ -91,6 +91,7 @@ class StudentController {
     async getMessages(req, res) {
         try {
             const tutorId = req.params.tutorId;
+            const tutor = await Tutor.findById(tutorId);
             const student = await Student.findOne({ userId: req.user._id });
 
             if (!student) {
@@ -100,7 +101,7 @@ class StudentController {
             const messages = await Message.find({
                 $or: [
                     { sender: req.user._id, recipient: tutorId },
-                    { sender: tutorId, recipient: student._id }
+                    { sender: tutor.userId, recipient: student._id }
                 ],
             })
                 .populate('sender', '_id')
@@ -135,7 +136,7 @@ class StudentController {
     async getAllChatContacts(req, res) {
         try {
             const student = await Student.findOne({ userId: req.user._id });
-            
+
             if (!student) {
                 return res.status(404).json({ error: 'Student not found' });
             }
@@ -169,7 +170,7 @@ class StudentController {
 
     async getAllContacts(req, res) {
         try {
-            const student = await Student.findOne({ userId: req.user._id }); 
+            const student = await Student.findOne({ userId: req.user._id });
 
             if (!student) {
                 return res.status(404).json({ error: 'Student not found' });
