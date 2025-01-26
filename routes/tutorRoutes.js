@@ -48,7 +48,7 @@ router.get('/getCompletedTutoringSessions', auth, TutorController.getCompletedTu
 
 router.get('/getAllContactsForTutor', auth, TutorController.getAllContactsForTutor);
 
-router.get('/getMessagesForTutor', auth, TutorController.getMessagesForTutor);
+router.get('/messages/:studentId', auth, TutorController.getMessagesForTutor);
 
 
 

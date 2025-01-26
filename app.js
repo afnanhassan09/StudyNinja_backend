@@ -4,7 +4,8 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const dbConnection = require('./config/dbConnection.js');
-
+const Student = require('./models/studentModel');
+const Tutor = require('./models/tutorModel');
 const authRoutes = require('./routes/authRoutes');
 const tutorRoutes = require('./routes/tutorRoutes');
 const adminRoutes = require('./routes/adminRoutes');
@@ -17,7 +18,6 @@ dbConnection();
 const app = express();
 const server = http.createServer(app);
 
-// Configure CORS for both Express and Socket.io
 app.use(cors({
     origin: "http://localhost:5173", // Your frontend URL
     methods: ["GET", "POST", "PUT", "DELETE"],
@@ -32,7 +32,6 @@ const io = new Server(server, {
     }
 });
 
-// Set io as a global variable
 global.io = io;
 
 app.use(express.json());
@@ -71,15 +70,36 @@ io.on('connection', (socket) => {
                 return;
             }
 
-            console.log('Saving message:', { sender, recipient, content });
-            
+            console.log('Fetching sender and recipient details...');
+
+            // Assuming users exist in separate Student and Tutor collections
+            const senderStudent = await Student.findOne({ userId: sender });
+            const senderTutor = await Tutor.findOne({ userId: sender });
+            const recipientStudent = await Student.findOne({ _id: recipient });
+            const recipientTutor = await Tutor.findOne({ _id: recipient });
+
+            let senderModel, recipientModel;
+
+            if (senderStudent) senderModel = 'Student';
+            else if (senderTutor) senderModel = 'Tutor';
+            else throw new Error(`Sender with ID ${sender} not found in Student or Tutor collection.`);
+
+            if (recipientStudent) recipientModel = 'Student';
+            else if (recipientTutor) recipientModel = 'Tutor';
+            else throw new Error(`Recipient with ID ${recipient} not found in Student or Tutor collection.`);
+
+            console.log('Sender Model:', senderModel, '| Recipient Model:', recipientModel);
+
             // Create and save new message
             const message = new Message({
                 sender,
+                senderModel,
                 recipient,
+                recipientModel,
                 content,
                 timestamp: new Date()
             });
+
             const savedMessage = await message.save();
             console.log('Message saved:', savedMessage);
 
@@ -87,7 +107,9 @@ io.on('connection', (socket) => {
             io.to(sender.toString()).to(recipient.toString()).emit('receiveMessage', {
                 _id: savedMessage._id,
                 sender: savedMessage.sender,
+                senderModel: savedMessage.senderModel,
                 recipient: savedMessage.recipient,
+                recipientModel: savedMessage.recipientModel,
                 content: savedMessage.content,
                 timestamp: savedMessage.timestamp
             });
@@ -96,6 +118,7 @@ io.on('connection', (socket) => {
             console.error('Error handling message:', error);
         }
     });
+
 
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${socket.id}`);

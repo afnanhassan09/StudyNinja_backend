@@ -99,28 +99,38 @@ class StudentController {
 
             const messages = await Message.find({
                 $or: [
-                    { sender: student._id, recipient: tutorId },
+                    { sender: req.user._id, recipient: tutorId },
                     { sender: tutorId, recipient: student._id }
                 ],
             })
-            .populate('sender')
-            .populate('recipient')
-            .sort({ timestamp: 1 })
-            .lean();
+                .populate('sender', '_id')
+                .populate('recipient', '_id')
+                .sort({ timestamp: 1 })
+                .lean();
 
-            const formattedMessages = messages.map(msg => ({
-                _id: msg._id,
-                sender: msg.sender._id.toString() === student._id.toString() ? 'student' : 'tutor',
-                content: msg.content,
-                timestamp: msg.timestamp
-            }));
+            if (messages.length === 0) {
+                return res.status(200).json({ messages: [] });
+            }
+
+            const studentIdStr = req.user._id.toString();
+            const formattedMessages = [];
+            for (let msg of messages) {
+                formattedMessages.push({
+                    _id: msg._id,
+                    sender: msg.senderModel ? msg.senderModel.toLowerCase() : "student",
+                    content: msg.content,
+                    timestamp: msg.timestamp
+                });
+            }
 
             return res.status(200).json({ messages: formattedMessages });
         } catch (error) {
-            console.error('Error fetching messages:', error);
+            console.error('❌ Error fetching messages:', error);
             return res.status(500).json({ error: 'Internal server error' });
         }
     }
+
+
 
     async getAllChatContacts(req, res) {
         try {
@@ -147,7 +157,6 @@ class StudentController {
             const formattedTutors = tutors.map(tutor => ({
                 _id: tutor._id,
                 name: tutor.userId.name,
-                email: tutor.userId.email,
                 profilePicture: tutor.profilePicture || tutor.userId.profilePicture
             }));
 

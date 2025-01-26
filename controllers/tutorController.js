@@ -6,8 +6,9 @@ const Rating = require('../models/ratingModel');
 const User = require('../models/userModel');
 const TutoringSession = require('../models/tutoringSessionModel');
 const Message = require('../models/messageModel');
-const Student = require('../models/studentModel');  
+const Student = require('../models/studentModel');
 const io = require('../app');
+const mongoose = require('mongoose');
 
 const Tutor = require('../models/tutorModel');
 const EssayModel = require('../models/modelEssayModel');
@@ -150,37 +151,50 @@ class TutorController {
 
     async getMessagesForTutor(req, res) {
         try {
-            const studentID = req.params.studentID;
+            const studentId = req.params.studentId; 
+            const student = await Student.findOne({ _id: studentId });
             const tutor = await Tutor.findOne({ userId: req.user._id });
-
+            console.log("Student Id: " + studentId)
+            console.log("Tutor Id: " , tutor._id)
+            console.log("User Id: " , req.user._id)
             if (!tutor) {
                 return res.status(404).json({ error: 'Tutor not found' });
             }
 
             const messages = await Message.find({
                 $or: [
-                    { sender: tutor._id, recipient: studentID },
-                    { sender: studentID, recipient: tutor._id },
+                    { sender: req.user._id, recipient: studentId },
+                    { sender: student.userId, recipient: tutor._id }
                 ],
             })
-            .populate('sender')
-            .populate('recipient')
-            .sort({ timestamp: 1 })
-            .lean();
+                .populate('sender', '_id')
+                .populate('recipient', '_id')
+                .sort({ timestamp: 1 })
+                .lean();
 
-            const formattedMessages = messages.map(msg => ({
-                _id: msg._id,
-                sender: msg.sender._id.toString() === tutor._id.toString() ? 'tutor' : 'student',
-                content: msg.content,
-                timestamp: msg.timestamp
-            }));
+            if (messages.length === 0) {
+                return res.status(200).json({ messages: [] });
+            }
+
+            const tutorIdStr = tutor._id.toString();
+            const formattedMessages = [];
+
+            for (let msg of messages) {
+                formattedMessages.push({
+                    _id: msg._id,
+                    sender: msg.sender && msg.sender._id.toString() === tutorIdStr ? 'tutor' : 'student',
+                    content: msg.content,
+                    timestamp: msg.timestamp
+                });
+            }
 
             return res.status(200).json({ messages: formattedMessages });
         } catch (error) {
-            console.error('Error fetching messages:', error);
+            console.error('❌ Error fetching messages for tutor:', error);
             return res.status(500).json({ error: 'Internal server error' });
         }
     }
+
 
     async getAllContactsForTutor(req, res) {
         try {
@@ -204,7 +218,7 @@ class TutorController {
 
             return res.status(200).json({ students });
         } catch (error) {
-            console.error('Error fetching students:', error);
+            console.error('Error fetching students for tutor:', error);
             return res.status(500).json({ error: 'Internal server error' });
         }
     }
@@ -436,17 +450,55 @@ class TutorController {
             });
         }
     }
+
     async getEssay(req, res) {
         try {
+            console.log("Getting essay...", req.body);
             const tutor = await Tutor.findOne({ userId: req.user._id });
             if (!tutor) {
                 return res.status(404).json({
                     message: 'Tutor profile not found',
                 });
             }
+
+            // Check if `essayID` is provided
             const { essayID } = req.body;
-            
-            const essay = await Essay.findByIdAndUpdate(
+            if (!essayID) {
+                return res.status(400).json({
+                    message: 'Essay ID is required',
+                });
+            }
+
+            const essay = await Essay.findById(essayID);
+            if (!essay) {
+                return res.status(404).json({
+                    message: 'Essay not found',
+                });
+            }
+
+
+            let senderModel, recipientModel;
+
+            senderModel = 'Tutor';
+
+            recipientModel = 'Student';
+
+            const content = "Hello there. I will be checking your essay"
+
+            console.log('Sender Model:', senderModel, '| Recipient Model:', recipientModel);
+
+            // Save the message in the database
+            const message = new Message({
+                sender: tutor._id,
+                senderModel,
+                recipient: essay.studentID,
+                recipientModel,
+                content,
+                timestamp: new Date()
+            });
+
+            // Assign essay to the current tutor
+            const updatedEssay = await Essay.findByIdAndUpdate(
                 essayID,
                 {
                     status: 'In Progress',
@@ -454,35 +506,23 @@ class TutorController {
                 },
                 { new: true }
             );
-
-            if (!essay) {
-                return res.status(404).json({
-                    message: 'Essay not found',
-                });
-            }
-
-            // Create and save the message first
-            const message = new Message({
-                sender: tutor._id,
-                recipient: essay.studentID,
-                content: "Hey there! I will be checking your essay."
-            });
-            await message.save();
-
-            // Then emit the message to the recipient
-            global.io.to(essay.studentID.toString()).emit('receiveMessage', message);
+            const savedMessage = await message.save();
+            console.log('Message saved:', savedMessage);
 
             return res.status(200).json({
                 message: 'Essay retrieved successfully!',
-                essay
+                essay: updatedEssay
             });
-        } catch (e) {
-            return res.status(400).json({
+
+        } catch (error) {
+            console.error("Error fetching essay:", error);
+            return res.status(500).json({
                 message: 'Internal server error',
-                error: e.message
+                error: error.message
             });
         }
     }
+
     async getInProgressEssays(req, res) {
         try {
             const tutor = await Tutor.findOne({ userId: req.user._id });
