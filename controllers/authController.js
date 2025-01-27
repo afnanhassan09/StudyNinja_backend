@@ -200,10 +200,8 @@ class AuthController {
                 return res.status(401).json({ message: 'Email does not exist.' });
             }
 
-            console.log("Password entered:", password);
-            console.log("Stored hashed password:", user.password);
             const isPasswordValid = await bcrypt.compare(password, user.password);
-            if (isPasswordValid) {
+            if (!isPasswordValid) {
                 return res.status(401).json({ message: 'Password is incorrect.' });
             }
 
@@ -250,12 +248,12 @@ class AuthController {
 
             const hashedToken = crypto.createHash('sha256').update(twoFAToken).digest('hex');
 
-            // if (
-            //     hashedToken !== user.twoFAToken ||
-            //     Date.now() > user.twoFATokenExpiry
-            // ) {
-            //     return res.status(400).json({ message: 'Invalid or expired 2FA token.' });
-            // }
+            if (
+                hashedToken !== user.twoFAToken ||
+                Date.now() > user.twoFATokenExpiry
+            ) {
+                return res.status(400).json({ message: 'Invalid or expired 2FA token.' });
+            }
 
             user.twoFAToken = null;
             user.twoFATokenExpiry = null;
@@ -287,7 +285,7 @@ class AuthController {
         try {
             const { email } = req.body;
 
-           
+
 
             const user = await User.findOne({ email: email.toLowerCase() });
             if (!user) {
