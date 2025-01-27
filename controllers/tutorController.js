@@ -773,7 +773,7 @@ class TutorController {
 
             const tutoring = await Tutoring.findOne({ tutorId: tutor._id });
             const essayEarning = essays.reduce((sum, essay) => sum + (essay.price || 0), 0);
-            const tutoringEarning = interviewsConducted * (tutoring.hourlyRate || 0);
+            const tutoringEarning = interviewsConducted * (tutoring ? tutoring.hourlyRate: 0);
             const earnings = essayEarning + tutoringEarning;
             const dashboardData = {
                 essaysReviewed,

@@ -297,7 +297,7 @@ class AuthController {
             user.resetPasswordTime = Date.now() + 30 * 60 * 1000; // 30 minutes expiry
             await user.save();
 
-            const resetLink = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+            const resetLink = `https://studyninja.vercel.app/reset-password/${resetToken}`;
             try {
                 await sendEmail(user.email, 'Password Reset Request', `Reset your password here: ${resetLink}`);
             } catch (emailError) {
