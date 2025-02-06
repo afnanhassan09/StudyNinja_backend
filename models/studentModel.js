@@ -8,16 +8,6 @@ const Student = new mongoose.Schema(
             ref: 'User',
             required: true,
         },
-        major: {
-            type: String,
-        },
-        university: {
-            type: String,
-        },
-        bio: {
-            type: String,
-            default: '',
-        },
         profilePicture: {
             type: String,
             default: null,

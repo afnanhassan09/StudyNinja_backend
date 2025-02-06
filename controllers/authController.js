@@ -2,7 +2,10 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/userModel');
 const crypto = require('crypto');
+const Student = require('../models/studentModel');
+const Tutor = require('../models/tutorModel');
 const { sendEmail } = require('../utils/sendEmail.js');
+
 
 class AuthController {
     // User Registration
@@ -22,12 +25,12 @@ class AuthController {
             }
 
             if (!['student', 'tutor', 'admin'].includes(role)) {
-                return res.status(400).json({ message: 'Invalid role. Must be "Student", "Tutor", or "Admin".' });
+                return res.status(400).json({ message: 'Invalid role. Must be "student", "tutor", or "admin".' });
             }
 
             const hashedPassword = await bcrypt.hash(password, 10);
             console.log("Password", hashedPassword);
-            // Generate email verification code
+            
             const emailVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
 
             user = new User({
@@ -37,17 +40,22 @@ class AuthController {
                 role,
                 phone,
                 emailVerificationCode: crypto.createHash('sha256').update(emailVerificationCode).digest('hex'),
-                emailVerificationExpiry: Date.now() + 1 * 60 * 1000, // 10 minutes
+                emailVerificationExpiry: Date.now() + 1 * 60 * 1000,
             });
 
             await user.save();
+            if(role === "student"){
+                const student = new Student({userId: user._id});
+                await student.save();
+            }
+            
 
-            // Send email verification code
             try {
                 await sendEmail(email, 'Email Verification Code', `Your email verification code is: ${emailVerificationCode}`);
             } catch (emailError) {
                 console.error('Error sending Email:', emailError);
             }
+
 
             res.status(201).json({
                 message: 'User registered successfully. Verification code has been sent to your email.',
@@ -120,7 +128,7 @@ class AuthController {
             // Generate a new email verification code
             const emailVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
             user.emailVerificationCode = crypto.createHash('sha256').update(emailVerificationCode).digest('hex');
-            user.emailVerificationExpiry = Date.now() + 2 * 60 * 1000; // 10 minutes
+            user.emailVerificationExpiry = Date.now() + 1 * 60 * 1000; // 10 minutes
             await user.save();
 
             // Send the new verification code via email
@@ -196,6 +204,7 @@ class AuthController {
             }
 
             const user = await User.findOne({ email: email });
+            console.log(user)
             if (!user) {
                 return res.status(401).json({ message: 'Email does not exist.' });
             }
@@ -212,7 +221,7 @@ class AuthController {
             // Generate 2FA code
             const twoFAToken = Math.floor(100000 + Math.random() * 900000).toString();
             user.twoFAToken = crypto.createHash('sha256').update(twoFAToken).digest('hex');
-            user.twoFATokenExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+            user.twoFATokenExpiry = Date.now() + 1 * 60 * 1000; // 10 minutes
             await user.save();
             console.log("2FA Token:", twoFAToken);
             // Send 2FA code via email
@@ -341,6 +350,24 @@ class AuthController {
             res.status(500).json({ message: 'Error resetting password.', error: error.message });
         }
     };
+
+    checkProfiles = async (req, res) => {
+        try{
+            const student = await Student.findOne({userId: req.user._id});
+            const tutor = await Tutor.findOne({userId: req.user._id});
+
+            return res.status(200).json({
+                "student": student? true: false,
+                "tutor": tutor? true: false
+            });
+
+        }
+        catch(error){
+            console.error('Error checking profiles:', error);
+            res.status(500).json({ message: 'Error checking profiles.', error: error.message });
+        }
+    }
 }
+
 
 module.exports = new AuthController();

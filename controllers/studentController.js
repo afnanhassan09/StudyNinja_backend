@@ -14,7 +14,7 @@ const Message = require('../models/messageModel');
 
 
 
-require('dotenv').config(); // Load environment variables from .env
+require('dotenv').config(); 
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -28,13 +28,12 @@ class StudentController {
         try {
             const files = req.files;
             const user = await User.findOne({ _id: req.user._id });
-            const { major, university, bio, dateOfBirth } = req.body; // Extract profile fields
+            const { major, university, bio, dateOfBirth } = req.body;
 
             let profilePictureUrl = null;
 
-            // Handle profile picture upload if provided
             if (files && files.length > 0) {
-                const file = files[0]; // Assuming only one profile picture file
+                const file = files[0];
                 const uploadedFile = await uploadFile(file.buffer, file.originalname, file.mimetype);
 
                 if (uploadedFile) {
@@ -46,11 +45,9 @@ class StudentController {
                 }
             }
 
-            // Find existing student profile
             const existingStudent = await Student.findOne({ userId: req.user._id });
 
             if (existingStudent) {
-                // Update existing student profile fields
                 existingStudent.major = major || existingStudent.major;
                 existingStudent.university = university || existingStudent.university;
                 existingStudent.bio = bio || existingStudent.bio;
@@ -63,7 +60,6 @@ class StudentController {
                     updatedStudent
                 });
             } else {
-                // Create a new student profile if none exists
                 const newStudent = await Student.create({
                     userId: req.user._id,
                     major,
@@ -130,8 +126,6 @@ class StudentController {
             return res.status(500).json({ error: 'Internal server error' });
         }
     }
-
-
 
     async getAllChatContacts(req, res) {
         try {
@@ -286,13 +280,11 @@ class StudentController {
         }
     }
 
-
-
     async getProfile(req, res) {
         console.log('Fetching student profile');
         try {
             const student = await Student.findOne({ userId: req.user._id }).populate('userId', 'name email');
-
+            console.log(student);
             if (!student) {
                 return res.status(404).json({
                     message: 'Student profile not found',
@@ -319,7 +311,7 @@ class StudentController {
             const essays = await Essay.find({ studentID: student._id })
 
             if (essays.length === 0) {
-                return res.status(404).json({ message: 'No essays found for the given student.' });
+                return res.status(400).json({ message: 'No essays found for the given student.' });
             }
 
             res.status(200).json({ essays });
@@ -461,18 +453,18 @@ class StudentController {
 
     async getStudentDashboard(req, res) {
         try {
-            // Fetch the student associated with the logged-in user
+            console.log('Fetching student dashboard');
             const student = await Student.findOne({ userId: req.user._id });
             if (!student) {
                 return res.status(404).json({ message: 'Student not found' });
             }
 
-            // Get all submitted essays for the student
+            
             const submittedEssays = await Essay.find({ studentID: student._id });
             const essaysSubmitted = submittedEssays.length;
             console.log(essaysSubmitted);
 
-            // Get all interviews completed by the student
+            
             const completedInterviews = await TutoringSession.find({
                 studentId: student._id,
                 endDateTime: { $lte: new Date() }, // Only include sessions that have ended

@@ -38,11 +38,11 @@ global.io = io;
 
 app.use(express.json());
 
-function logRequest(req, res, next) {
-    console.log(`[${new Date().toLocaleString()}] ${req.method} ${req.url}`);
-    next();
-}
-app.use(logRequest);
+// function logRequest(req, res, next) {
+//     console.log(`[${new Date().toLocaleString()}] ${req.method} ${req.url}`);
+//     next();
+// }
+// app.use(logRequest);
 
 // WebSocket setup
 io.on('connection', (socket) => {
@@ -147,6 +147,13 @@ cron.schedule('*/10 * * * *', async () => {
         console.error('❌ Error making GET request:', error.message);
     }
 });
+
+// app.use((req, res, next) => {
+//     console.log(`Request Type: ${req.method}`);
+//     console.log(`Request Route: ${req.originalUrl}`);
+//     next();
+// });
+
 
 // Make sure to export both app and server
 module.exports = { app, server, io };
