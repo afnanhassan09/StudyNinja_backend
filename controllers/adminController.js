@@ -5,7 +5,7 @@ const Rating = require("../models/ratingModel");
 class AdminController {
   async approveTutor(req, res) {
     try {
-      const { tutorId, approved_essay, approved_tutoring } = req.body;
+      const { tutorId, approved_essay, approved_tutoring, StudyLevel} = req.body;
       console.log(tutorId);
       if (!tutorId) {
         return res.status(400).json({
@@ -22,7 +22,7 @@ class AdminController {
       }
       if (approved_essay) tutor.approved_essay = approved_essay;
       if (approved_tutoring) tutor.approved_tutoring = approved_tutoring;
-
+      tutor.StudyLevel = StudyLevel
       await tutor.save();
 
       return res.status(200).json({
