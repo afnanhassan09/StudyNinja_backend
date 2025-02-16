@@ -281,6 +281,19 @@ class AdminController {
         .json({ message: "Error deleting rating", error: error.message });
     }
   }
+
+  async getAllratingsOfTutor(req, res) {
+    try {
+      const { id } = req.params;
+      const ratings = await Rating.find({ tutorId: id });
+      if (!ratings || ratings.length === 0) {
+        return res.status(404).json({ message: "No ratings found" });
+      }
+      return res.status(200).json({ ratings });
+    } catch (error) {
+      return res.status(500).json({ message: "Error fetching ratings", error: error.message });
+    }
+  }
 }
 
 module.exports = new AdminController();
