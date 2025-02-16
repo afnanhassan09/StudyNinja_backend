@@ -5,7 +5,7 @@ const Tutor = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      // required: true,
     },
     yearsOfExperience: {
       type: Number,
@@ -13,11 +13,11 @@ const Tutor = new mongoose.Schema(
     },
     university: {
       type: String,
-      required: true,
+      // required: true,
     },
     course: {
       type: String,
-      required: true,
+      // required: true,
     },
     aLevels: [
       {
@@ -27,19 +27,19 @@ const Tutor = new mongoose.Schema(
     ],
     aLevelsCompletionDate: {
       type: Date,
-      required: true,
+      // required: true,
     },
     universityStartDate: {
       type: Date,
-      required: true,
+      // required: true,
     },
     expectedGraduationDate: {
       type: Date,
-      required: true,
+      // required: true,
     },
     dateOfBirth: {
       type: Date,
-      required: true,
+      // required: true,
     },
     motivation: {
       type: String,
@@ -47,18 +47,18 @@ const Tutor = new mongoose.Schema(
     },
     profilePicture: {
       type: String,
-      required: true,
+      // required: true,
     },
     subjects: [
       {
         name: {
           type: String,
-          required: true,
+          // required: true,
         },
         levels: {
           type: [String],
           enum: ["GCSE", "A-Level", "Bachelor", "Masters", "PhD"],
-          required: true,
+          // required: true,
         },
       },
     ],
@@ -76,6 +76,10 @@ const Tutor = new mongoose.Schema(
       default: false,
     },
     approved_tutoring: {
+      type: Boolean,
+      default: false,
+    },
+    approved: {
       type: Boolean,
       default: false,
     },

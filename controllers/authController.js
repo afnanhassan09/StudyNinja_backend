@@ -358,7 +358,9 @@ class AuthController {
 
             return res.status(200).json({
                 "student": student? true: false,
-                "tutor": tutor? true: false
+                "tutor": tutor? true: false,
+                "studentID": student? student._id: null,
+                "tutorID": tutor? tutor._id: null
             });
 
         }

@@ -26,4 +26,7 @@ router.post('/requestPasswordReset', AuthController.requestPasswordReset);
 // Reset Password
 router.post('/resetPassword', AuthController.resetPassword);
 
+// Check Profiles
+router.get('/checkProfiles', auth, AuthController.checkProfiles);
+
 module.exports = router;

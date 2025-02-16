@@ -7,11 +7,8 @@ const User = require("../models/userModel");
 const TutoringSession = require("../models/tutoringSessionModel");
 const Message = require("../models/messageModel");
 const Student = require("../models/studentModel");
-const io = require("../app");
-const mongoose = require("mongoose");
 
 const Tutor = require("../models/tutorModel");
-const EssayModel = require("../models/modelEssayModel");
 
 class TutorController {
   async requestForTutor(req, res) {
@@ -467,6 +464,43 @@ class TutorController {
         message: "Internal server error",
         error: error.message,
       });
+    }
+  }
+
+  async applyForDBS(req, res) {
+    try {
+      const tutor = await Tutor.findOne({ id: req.user.id });
+      if (!tutor) {
+        return res.status(401).json({ message: "Tutor not found." });
+      }
+      if (tutor.hasDBS && !tutor.appliedForDBS) {
+        return res.status(400).json({ message: "Tutor already has DBS." });
+      }
+      tutor.appliedForDBS = true;
+      tutor.hasDBS = false;
+      tutor.approved = false;
+
+      const fullName = req.body.fullName;
+      const certificateFile = req.files.certificateFile;
+      const certificateFileURL = await uploadFile(
+        certificateFile.buffer,
+        certificateFile.originalname,
+        certificateFile.mimetype
+      );
+
+      tutor.dbsDetails.fullName = fullName;
+      tutor.dbsDetails.certificateFileUrl = certificateFileURL;
+      tutor.dbsDetails.certificateNumber = req.body.certificateNumber;
+
+      await tutor.save();
+
+      return res
+        .status(200)
+        .json({ message: "DBS application submitted successfully." });
+    } catch (error) {
+      return res
+        .status(500)
+        .json({ message: "Server error.", error: error.message });
     }
   }
 
