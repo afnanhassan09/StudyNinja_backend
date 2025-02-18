@@ -5,8 +5,18 @@ const Rating = require("../models/ratingModel");
 class AdminController {
   async approveTutor(req, res) {
     try {
-      const { tutorId, approved_essay, approved_tutoring, StudyLevel} = req.body;
-      console.log(tutorId);
+      const { tutorId, approved_essay, approved_tutoring, StudyLevel } =
+        req.body;
+      console.log(
+        "tutorId",
+        tutorId,
+        "approved_essay",
+        approved_essay,
+        "approved_tutoring",
+        approved_tutoring,
+        "StudyLevel",
+        StudyLevel
+      );
       if (!tutorId) {
         return res.status(400).json({
           message: "Tutor ID is required",
@@ -22,7 +32,8 @@ class AdminController {
       }
       if (approved_essay) tutor.approved_essay = approved_essay;
       if (approved_tutoring) tutor.approved_tutoring = approved_tutoring;
-      tutor.StudyLevel = StudyLevel
+      tutor.StudyLevel = StudyLevel;
+      tutor.approved = true;
       await tutor.save();
 
       return res.status(200).json({
@@ -61,7 +72,10 @@ class AdminController {
 
   async appliedForDBSTutors(req, res) {
     try {
-      const appliedTutors = await Tutor.find({ appliedForDBS: true, hasDBS: false });
+      const appliedTutors = await Tutor.find({
+        appliedForDBS: true,
+        hasDBS: false,
+      });
 
       if (!appliedTutors || appliedTutors.length === 0) {
         return res.status(404).json({
@@ -291,7 +305,9 @@ class AdminController {
       }
       return res.status(200).json({ ratings });
     } catch (error) {
-      return res.status(500).json({ message: "Error fetching ratings", error: error.message });
+      return res
+        .status(500)
+        .json({ message: "Error fetching ratings", error: error.message });
     }
   }
 }
