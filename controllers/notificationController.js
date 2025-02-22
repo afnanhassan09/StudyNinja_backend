@@ -15,7 +15,6 @@ class NotificationController {
         }
 
         try {
-            // Fetch user details from the database
             const user = await User.findById(userId);
 
             if (!user) {
@@ -24,7 +23,6 @@ class NotificationController {
 
             const { name, email, phone } = user;
 
-            // Send the message via email and SMS concurrently
             const [emailResult, smsResult] = await Promise.all([
                 sendEmail(email, 'Notification', message),
                 sendSMS(phone, message)

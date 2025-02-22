@@ -7,6 +7,7 @@ const User = require("../models/userModel");
 const TutoringSession = require("../models/tutoringSessionModel");
 const Message = require("../models/messageModel");
 const Student = require("../models/studentModel");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const Tutor = require("../models/tutorModel");
 
@@ -621,36 +622,62 @@ class TutorController {
     }
   }
 
+  async acceptEssay(req, res) {
+    try {
+      const { essayID } = req.body;
+      const essay = await Essay.findById(essayID);
+      if (!essay) {
+        return res.status(404).json({
+          message: "Essay not found",
+        });
+      }
+      essay.accepted = true;
+      await essay.save();
+      return res.status(200).json({
+        message: "Essay accepted successfully",
+        essay,
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({
+        message: "Internal server error",
+        error: error.message,
+      });
+    }
+  }
+
   async markEssay(req, res) {
     console.log("Marking essay...");
     try {
       const { essayID, feedback, score } = req.body;
       const essay = await Essay.findById(essayID);
+
+      if (!essay) {
+        return res.status(404).json({ message: "Essay not found" });
+      }
+
+      if (!essay.accepted) {
+        return res.status(400).json({ message: "Essay not accepted" });
+      }
+
       const tutor = await Tutor.findOne({ userId: req.user._id });
       if (!tutor) {
-        return res.status(404).json({
-          message: "Tutor profile not found",
-        });
-      }
-      if (!essay) {
-        return res.status(404).json({
-          message: "Essay not found",
-        });
+        return res.status(404).json({ message: "Tutor profile not found" });
       }
 
       if (
         essay.markedBy &&
         essay.markedBy.toString() !== tutor._id.toString()
       ) {
-        return res.status(403).json({
-          message: "You are not authorized to mark this essay.",
-        });
+        return res
+          .status(403)
+          .json({ message: "You are not authorized to mark this essay." });
       }
 
       essay.feedback = feedback;
       essay.score = score;
       essay.status = "Completed";
-      console.log(req.files);
+
       if (essay.studentRequest === "Feedback and Model Answer") {
         if (!req.files || !req.files.modelAnswerFile) {
           return res.status(400).json({
@@ -670,9 +697,33 @@ class TutorController {
 
       await essay.save();
 
+      const paymentLink = await stripe.paymentLinks.create({
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              product_data: {
+                name: `Payment for Essay Review - ${essay.title}`,
+              },
+              unit_amount: Math.round(essay.price * 100),
+            },
+            quantity: 1,
+          },
+        ],
+        after_completion: {
+          type: "redirect",
+          redirect: { url: `${process.env.FRONTEND_URL}/payment-success` },
+        },
+        metadata: {
+          tutorId: tutor._id.toString(),
+          essayId: essay._id.toString(),
+        },
+      });
+
       return res.status(200).json({
-        message: "Essay marked successfully!",
+        message: "Essay marked successfully! Payment link generated.",
         essay,
+        paymentUrl: paymentLink.url,
       });
     } catch (e) {
       return res.status(400).json({
@@ -1140,6 +1191,35 @@ class TutorController {
         .json({ message: "Internal server error", error: error.message });
     }
   }
+
+  static async checkAndResetStaleEssays() {
+    try {
+      const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+
+      const staleEssays = await Essay.updateMany(
+        {
+          status: "In Progress",
+          accepted: false,
+          inProgressSince: { $lt: fortyEightHoursAgo },
+        },
+        {
+          $set: {
+            status: "Pending",
+            markedBy: null,
+            inProgressSince: null,
+          },
+        }
+      );
+
+      console.log(
+        `Reset ${staleEssays.modifiedCount} stale essays to Pending status`
+      );
+    } catch (error) {
+      console.error("Error checking stale essays:", error);
+    }
+  }
 }
 
 module.exports = new TutorController();
+module.exports.checkAndResetStaleEssays =
+  TutorController.checkAndResetStaleEssays;

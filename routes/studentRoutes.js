@@ -45,4 +45,6 @@ router.get('/getAllContacts', auth, StudentController.getAllChatContacts)
 
 router.get('/messages/:tutorId', auth, StudentController.getMessages)
 
+router.post('/confirmPayment', auth, StudentController.confirmPayment)
+
 module.exports = router

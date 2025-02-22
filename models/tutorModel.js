@@ -146,6 +146,10 @@ const Tutor = new mongoose.Schema(
         default: null,
       },
     },
+    stripeAccountId: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,

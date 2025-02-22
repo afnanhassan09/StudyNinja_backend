@@ -35,7 +35,49 @@ class AdminController {
       tutor.StudyLevel = StudyLevel;
       tutor.approved = true;
       await tutor.save();
-
+      const user = await User.findOne({ _id: tutor.userId });
+      
+      if (tutor.approved_essay && tutor.approved_tutoring) {
+        try {
+          await sendEmail(
+            user.email,
+            "Tutor Approved",
+            `Your tutor request has been approved. You can now start checking essays and tutoring sessions.`
+          );
+        } catch (emailError) {
+          console.error("Error sending Email:", emailError);
+        }
+      } else if (tutor.approved_essay) {
+        try {
+          await sendEmail(
+            user.email,
+            "Tutor Approved",
+            `Your tutor request has been approved. You can now start checking essays.`
+          );
+        } catch (emailError) {
+          console.error("Error sending Email:", emailError);
+        }
+      } else if (tutor.approved_tutoring) {
+        try {
+          await sendEmail(
+            user.email,
+            "Tutor Approved",
+            `Your tutor request has been approved. You can now start tutoring.`
+          );
+        } catch (emailError) {
+          console.error("Error sending Email:", emailError);
+        }
+      } else {
+        try {
+          await sendEmail(
+            user.email,
+            "Tutor Approved",
+            `Your tutor request has been refused. You were not found to be qualified for the position .`
+          );
+        } catch (emailError) {
+          console.error("Error sending Email:", emailError);
+        }
+      }
       return res.status(200).json({
         message: "Tutor updated successfully",
         tutor,
