@@ -509,7 +509,7 @@ class TutorController {
     try {
       console.log(req.user._id);
       const tutor = await Tutor.findOne({ userId: req.user._id }).select(
-        "StudyLevel premiumEssays approved"
+        "StudyLevel premiumEssays approved_essay"
       );
 
       if (!tutor) {
@@ -656,10 +656,6 @@ class TutorController {
         return res.status(404).json({ message: "Essay not found" });
       }
 
-      if (!essay.accepted) {
-        return res.status(400).json({ message: "Essay not accepted" });
-      }
-
       const tutor = await Tutor.findOne({ userId: req.user._id });
       if (!tutor) {
         return res.status(404).json({ message: "Tutor profile not found" });
@@ -697,23 +693,24 @@ class TutorController {
 
       await essay.save();
 
-      const paymentLink = await stripe.paymentLinks.create({
+      // Create a Stripe payment link using the proper format
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
         line_items: [
           {
             price_data: {
               currency: "usd",
+              unit_amount: Math.round(essay.price * 100), // Convert to cents
               product_data: {
                 name: `Payment for Essay Review - ${essay.title}`,
               },
-              unit_amount: Math.round(essay.price * 100),
             },
             quantity: 1,
           },
         ],
-        after_completion: {
-          type: "redirect",
-          redirect: { url: `${process.env.FRONTEND_URL}/payment-success` },
-        },
+        mode: "payment",
+        success_url: `http://localhost:5173/tutor/payment-success`,
+        cancel_url: `http://localhost:5173/tutor/payment-failed`,
         metadata: {
           tutorId: tutor._id.toString(),
           essayId: essay._id.toString(),
@@ -723,12 +720,13 @@ class TutorController {
       return res.status(200).json({
         message: "Essay marked successfully! Payment link generated.",
         essay,
-        paymentUrl: paymentLink.url,
+        paymentUrl: session.url,
       });
-    } catch (e) {
+    } catch (error) {
+      console.error("Error marking essay:", error);
       return res.status(400).json({
         message: "Internal server error",
-        error: e.message,
+        error: error.message,
       });
     }
   }

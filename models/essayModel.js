@@ -15,7 +15,7 @@ const EssaySchema = mongoose.Schema(
     paymentStatus: {
       type: String,
       enum: ["Pending", "Paid", "Failed"],
-      default: "Pending",
+      default: "Paid",
     },
     accepted: {
       type: Boolean,

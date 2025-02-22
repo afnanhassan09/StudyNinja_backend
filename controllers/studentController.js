@@ -315,7 +315,7 @@ class StudentController {
               product_data: {
                 name: `Essay Review - ${academicLevel}`,
               },
-              unit_amount: Math.round((price) * 100),
+              unit_amount: Math.round(price * 100),
             },
             quantity: 1,
           },
@@ -323,8 +323,8 @@ class StudentController {
         metadata: {
           essayId: essay._id.toString(),
         },
-        success_url: `https://yourfrontend.com/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `https://yourfrontend.com/payment-failed?session_id={CHECKOUT_SESSION_ID}`,
+        success_url: `http://localhost:5173/payment-success/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `http://localhost:5173/payment-failed/payment-failed?session_id={CHECKOUT_SESSION_ID}`,
       });
 
       return res.status(200).json({
@@ -527,18 +527,45 @@ class StudentController {
       ].filter((slot) => slot !== timeRange);
       await existingSession.save();
 
+      const duration = (endTimeObj - startTimeObj) / (1000 * 60); // Calculate duration in minutes
+      const price = existingSession.hourlyRate;
+      const platformCommission = Math.round(price * 0.1 * 100) / 100;
+
       const tutoringSession = await TutoringSession.create({
         tutorId: tutor._id,
         studentId: student._id,
         purpose,
         startTime,
         endTime,
+        price: price - platformCommission,
+        platformCommission,
+      });
+
+      // Create Stripe checkout session
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        mode: "payment",
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              product_data: {
+                name: `Tutoring Session for ${purpose}`,
+              },
+              unit_amount: Math.round(price * 100),
+            },
+            quantity: 1,
+          },
+        ],
+        metadata: {
+          tutoringSessionId: tutoringSession._id.toString(),
+        },
+        success_url: `https://yourfrontend.com/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `https://yourfrontend.com/payment-failed?session_id={CHECKOUT_SESSION_ID}`,
       });
 
       // Schedule Zoom meeting creation
-      const duration = (endTimeObj - startTimeObj) / (1000 * 60); // Calculate duration in minutes
       const topic = `Tutoring Session for ${purpose}`;
-
       schedule.scheduleJob(startTimeObj, async () => {
         try {
           const meetingDetails = await createInstantMeeting(topic, duration);
@@ -561,7 +588,10 @@ class StudentController {
         }
       });
 
-      res.status(200).json({ tutoringSession });
+      res.status(200).json({
+        message: "Tutoring session created successfully! Redirect to payment.",
+        paymentUrl: session.url,
+      });
     } catch (error) {
       console.error(error);
       res.status(500).json({
